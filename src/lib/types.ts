@@ -60,3 +60,44 @@ export type MarkupRule = {
   effective_from: string
   effective_to: string | null
 }
+
+export type Delivery = {
+  id: string
+  season_id: string
+  supplier_id: string
+  product_id: string
+  subcontractor_id: string
+  site_id: string
+  loads: number
+  est_tons_per_load: number
+  est_tons: number
+  actual_tons: number | null
+  cost_per_ton: number
+  sell_per_ton: number
+  misc_fee: number
+  supplier_ticket: string | null
+  notes: string | null
+  order_placed_at: string | null
+  supplier_confirmed_at: string | null
+  sub_confirmed_at: string | null
+  delivered_at: string | null
+  reconciled_at: string | null
+  sub_invoiced_at: string | null
+  sub_paid_at: string | null
+  supplier_invoiced_at: string | null
+  supplier_paid_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type DeliveryEvent = {
+  id: string
+  delivery_id: string
+  event: string
+  from_stage: string | null
+  to_stage: string | null
+  note: string | null
+  created_by: string | null
+  created_at: string
+}
