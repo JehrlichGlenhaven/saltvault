@@ -101,3 +101,55 @@ export type DeliveryEvent = {
   created_by: string | null
   created_at: string
 }
+
+export type DocumentStatus = 'open' | 'partial' | 'paid' | 'void'
+
+export type SubInvoice = {
+  id: string
+  invoice_number: string
+  subcontractor_id: string
+  season_id: string
+  issue_date: string
+  due_date: string | null
+  status: DocumentStatus
+  notes: string | null
+  created_at: string
+}
+
+export type SubInvoiceItem = {
+  id: string
+  sub_invoice_id: string
+  delivery_id: string
+  amount: number
+}
+
+export type SupplierBill = {
+  id: string
+  bill_number: string
+  supplier_id: string
+  season_id: string
+  issue_date: string
+  due_date: string | null
+  status: DocumentStatus
+  notes: string | null
+  created_at: string
+}
+
+export type SupplierBillItem = {
+  id: string
+  supplier_bill_id: string
+  delivery_id: string
+  amount: number
+}
+
+export type Payment = {
+  id: string
+  sub_invoice_id: string | null
+  supplier_bill_id: string | null
+  amount: number
+  payment_date: string
+  method: string | null
+  reference: string | null
+  notes: string | null
+  created_at: string
+}
