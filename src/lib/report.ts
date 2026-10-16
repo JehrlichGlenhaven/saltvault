@@ -137,6 +137,8 @@ export type Outstanding = {
   payable: number
   /** open invoice balance per subcontractor id */
   receivableBySub: Map<string, number>
+  /** payments received against sub invoices in scope (revenue collected) */
+  collected: number
 }
 
 export async function fetchOutstanding(
@@ -157,13 +159,14 @@ export async function fetchOutstanding(
   }
 
   const [{ data: invoices }, { data: invoiceItems }, { data: invoicePayments },
-    { data: bills }, { data: billItems }, { data: billPayments }] = await Promise.all([
+    { data: bills }, { data: billItems }, { data: billPayments }, { data: invoiceIndex }] = await Promise.all([
     invoicesQuery,
     supabase.from('sub_invoice_items').select('sub_invoice_id, amount'),
     supabase.from('payments').select('sub_invoice_id, amount').not('sub_invoice_id', 'is', null),
     billsQuery,
     supabase.from('supplier_bill_items').select('supplier_bill_id, amount'),
     supabase.from('payments').select('supplier_bill_id, amount').not('supplier_bill_id', 'is', null),
+    supabase.from('sub_invoices').select('id, season_id'),
   ])
 
   const sumFor = (
@@ -194,7 +197,16 @@ export async function fetchOutstanding(
     if (balance > 0.001) payable += balance
   }
 
-  return { receivable, payable, receivableBySub }
+  const seasonByInvoice = new Map((invoiceIndex ?? []).map((i) => [i.id, i.season_id]))
+  const collected = (invoicePayments ?? [])
+    .filter(
+      (p) =>
+        p.sub_invoice_id &&
+        (!seasonId || seasonByInvoice.get(p.sub_invoice_id) === seasonId)
+    )
+    .reduce((s, p) => s + Number(p.amount), 0)
+
+  return { receivable, payable, receivableBySub, collected }
 }
 
 export function rowMarginPct(row: ReportRow): number | null {
