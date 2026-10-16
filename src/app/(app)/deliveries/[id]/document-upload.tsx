@@ -16,7 +16,7 @@ export function DocumentUpload({
     <form
       action={async (fd) => {
         await formAction(fd)
-        fileRef.current?.value && (fileRef.current.value = '')
+        if (fileRef.current) fileRef.current.value = ''
       }}
       className="flex flex-col gap-3"
     >
