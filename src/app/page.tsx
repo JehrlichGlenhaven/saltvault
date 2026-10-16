@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { logout } from './login/actions'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server'
 
@@ -35,7 +36,7 @@ async function getDashboardData() {
   return { email: user?.email ?? null, role, seasons, products, subcontractors, deliveries }
 }
 
-export default async function Home() {
+async function Dashboard() {
   if (!isSupabaseConfigured()) {
     return (
       <main className="flex flex-1 items-center justify-center bg-zinc-100 px-4">
@@ -120,5 +121,19 @@ export default async function Home() {
         )}
       </div>
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex flex-1 items-center justify-center bg-zinc-100">
+          <p className="text-sm text-zinc-500">Loading…</p>
+        </main>
+      }
+    >
+      <Dashboard />
+    </Suspense>
   )
 }
