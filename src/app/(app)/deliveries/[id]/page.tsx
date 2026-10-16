@@ -8,6 +8,7 @@ import { deliveryCost, deliveryMargin, deliveryRevenue, deliveryTons, marginPct 
 import { createClient } from '@/lib/supabase/server'
 import type {
   Delivery,
+  DeliveryDocument,
   DeliveryEvent,
   Product,
   Season,
@@ -17,7 +18,16 @@ import type {
 } from '@/lib/types'
 import { advanceMilestone, deleteDelivery, reconcileDelivery, updateDelivery } from '../actions'
 import { DeliveryForm } from '../form'
+import { deleteDeliveryDocument, uploadDeliveryDocument } from './document-actions'
+import { DocumentUpload } from './document-upload'
 import { ReconcileForm } from './reconcile-form'
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  sub_invoice: 'Sub invoice',
+  supplier_invoice: 'Supplier invoice',
+  ticket: 'Ticket / BOL',
+  other: 'Other',
+}
 
 type DeliveryRow = Delivery & {
   subcontractors: { name: string } | null
@@ -47,6 +57,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     { data: products },
     { data: subs },
     { data: sites },
+    { data: documents },
   ] = await Promise.all([
     supabase
       .from('deliveries')
@@ -59,8 +70,23 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     supabase.from('products').select('*').eq('active', true).order('name'),
     supabase.from('subcontractors').select('*').eq('active', true).order('name'),
     supabase.from('sites').select('*').order('name'),
+    supabase
+      .from('delivery_documents')
+      .select('*')
+      .eq('delivery_id', id)
+      .order('created_at', { ascending: false }),
   ])
   if (!delivery) notFound()
+
+  const docs = (documents ?? []) as DeliveryDocument[]
+  const docsWithUrls = await Promise.all(
+    docs.map(async (doc) => {
+      const { data: signed } = await supabase.storage
+        .from('delivery-documents')
+        .createSignedUrl(doc.storage_path, 3600)
+      return { ...doc, url: signed?.signedUrl ?? null }
+    })
+  )
 
   const d = delivery as unknown as DeliveryRow
   const reconciled = d.actual_tons !== null
@@ -171,6 +197,48 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                 ))}
               </ul>
             )}
+          </section>
+
+          <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-medium text-zinc-900">Documents</h3>
+            {docsWithUrls.length === 0 ? (
+              <p className="mb-4 text-sm text-zinc-400">
+                No documents yet — upload the sub invoice, the supplier&apos;s invoice, or a
+                delivery ticket.
+              </p>
+            ) : (
+              <ul className="mb-4 flex flex-col gap-2">
+                {docsWithUrls.map((doc) => (
+                  <li key={doc.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                        {DOC_TYPE_LABELS[doc.doc_type] ?? doc.doc_type}
+                      </span>
+                      {doc.url ? (
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate text-zinc-900 hover:underline"
+                        >
+                          {doc.file_name}
+                        </a>
+                      ) : (
+                        <span className="truncate text-zinc-500">{doc.file_name}</span>
+                      )}
+                      <span className="shrink-0 text-xs text-zinc-400">
+                        {doc.size_bytes ? `${Math.max(1, Math.round(doc.size_bytes / 1024))} KB` : ''}
+                      </span>
+                    </span>
+                    <DeleteButton
+                      action={deleteDeliveryDocument.bind(null, doc.id, d.id)}
+                      label="Remove"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <DocumentUpload action={uploadDeliveryDocument.bind(null, d.id)} />
           </section>
         </div>
       </div>

@@ -153,3 +153,17 @@ export type Payment = {
   notes: string | null
   created_at: string
 }
+
+export type DocType = 'sub_invoice' | 'supplier_invoice' | 'ticket' | 'other'
+
+export type DeliveryDocument = {
+  id: string
+  delivery_id: string
+  doc_type: DocType
+  file_name: string
+  storage_path: string
+  size_bytes: number | null
+  content_type: string | null
+  uploaded_by: string | null
+  created_at: string
+}
