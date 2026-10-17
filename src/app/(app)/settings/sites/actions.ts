@@ -20,8 +20,8 @@ export async function createSite(_prev: FormState, fd: FormData): Promise<FormSt
   if (error) {
     return { error: isUniqueViolation(error) ? 'That subcontractor already has a site with that name.' : error.message }
   }
-  revalidatePath('/sites')
-  redirect('/sites')
+  revalidatePath('/settings/sites')
+  redirect('/settings/sites')
 }
 
 export async function updateSite(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
@@ -30,13 +30,13 @@ export async function updateSite(id: string, _prev: FormState, fd: FormData): Pr
   if (error) {
     return { error: isUniqueViolation(error) ? 'That subcontractor already has a site with that name.' : error.message }
   }
-  revalidatePath('/sites')
-  redirect('/sites')
+  revalidatePath('/settings/sites')
+  redirect('/settings/sites')
 }
 
 export async function deleteSite(id: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('sites').delete().eq('id', id)
-  revalidatePath('/sites')
-  redirect('/sites')
+  revalidatePath('/settings/sites')
+  redirect('/settings/sites')
 }

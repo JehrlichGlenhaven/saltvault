@@ -23,8 +23,8 @@ export async function createSubcontractor(_prev: FormState, fd: FormData): Promi
   if (error) {
     return { error: isUniqueViolation(error) ? 'A subcontractor with that name already exists.' : error.message }
   }
-  revalidatePath('/subcontractors')
-  redirect('/subcontractors')
+  revalidatePath('/settings/subcontractors')
+  redirect('/settings/subcontractors')
 }
 
 export async function updateSubcontractor(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
@@ -33,13 +33,13 @@ export async function updateSubcontractor(id: string, _prev: FormState, fd: Form
   if (error) {
     return { error: isUniqueViolation(error) ? 'A subcontractor with that name already exists.' : error.message }
   }
-  revalidatePath('/subcontractors')
-  redirect('/subcontractors')
+  revalidatePath('/settings/subcontractors')
+  redirect('/settings/subcontractors')
 }
 
 export async function deleteSubcontractor(id: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('subcontractors').delete().eq('id', id)
-  revalidatePath('/subcontractors')
-  redirect('/subcontractors')
+  revalidatePath('/settings/subcontractors')
+  redirect('/settings/subcontractors')
 }

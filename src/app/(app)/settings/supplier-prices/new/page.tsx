@@ -8,7 +8,7 @@ import { createSupplierPrice } from '../actions'
 import { SupplierPriceForm } from '../form'
 
 async function NewPrice() {
-  if ((await getMyRole()) !== 'admin') redirect('/supplier-prices')
+  if ((await getMyRole()) !== 'admin') redirect('/settings/supplier-prices')
 
   const supabase = await createClient()
   const [{ data: suppliers }, { data: products }] = await Promise.all([

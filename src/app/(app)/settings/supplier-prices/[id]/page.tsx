@@ -9,7 +9,7 @@ import { deleteSupplierPrice, updateSupplierPrice } from '../actions'
 import { SupplierPriceForm } from '../form'
 
 async function Editor({ params }: { params: Promise<{ id: string }> }) {
-  if ((await getMyRole()) !== 'admin') redirect('/supplier-prices')
+  if ((await getMyRole()) !== 'admin') redirect('/settings/supplier-prices')
 
   const { id } = await params
   const supabase = await createClient()

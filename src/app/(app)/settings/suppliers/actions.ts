@@ -21,8 +21,8 @@ export async function createSupplier(_prev: FormState, fd: FormData): Promise<Fo
   if (error) {
     return { error: isUniqueViolation(error) ? 'A supplier with that name already exists.' : error.message }
   }
-  revalidatePath('/suppliers')
-  redirect('/suppliers')
+  revalidatePath('/settings/suppliers')
+  redirect('/settings/suppliers')
 }
 
 export async function updateSupplier(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
@@ -31,13 +31,13 @@ export async function updateSupplier(id: string, _prev: FormState, fd: FormData)
   if (error) {
     return { error: isUniqueViolation(error) ? 'A supplier with that name already exists.' : error.message }
   }
-  revalidatePath('/suppliers')
-  redirect('/suppliers')
+  revalidatePath('/settings/suppliers')
+  redirect('/settings/suppliers')
 }
 
 export async function deleteSupplier(id: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('suppliers').delete().eq('id', id)
-  revalidatePath('/suppliers')
-  redirect('/suppliers')
+  revalidatePath('/settings/suppliers')
+  redirect('/settings/suppliers')
 }

@@ -26,7 +26,7 @@ async function SubcontractorRows() {
   return subs.map((sub) => (
     <tr key={sub.id} className="hover:bg-zinc-50">
       <td className={tdCls}>
-        <Link href={`/subcontractors/${sub.id}`} className="font-medium text-zinc-900 hover:underline">
+        <Link href={`/settings/subcontractors/${sub.id}`} className="font-medium text-zinc-900 hover:underline">
           {sub.name}
         </Link>
       </td>
@@ -41,7 +41,7 @@ async function SubcontractorRows() {
 export default function SubcontractorsPage() {
   return (
     <main>
-      <PageHeader title="Subcontractors" actionHref="/subcontractors/new" actionLabel="Add subcontractor" />
+      <PageHeader title="Subcontractors" actionHref="/settings/subcontractors/new" actionLabel="Add subcontractor" />
       <div className={tableWrapCls}>
         <table className={tableCls}>
           <thead className={theadCls}>

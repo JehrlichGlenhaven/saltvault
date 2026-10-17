@@ -31,7 +31,7 @@ async function SiteRows() {
   return sites.map((site) => (
     <tr key={site.id} className="hover:bg-zinc-50">
       <td className={tdCls}>
-        <Link href={`/sites/${site.id}`} className="font-medium text-zinc-900 hover:underline">
+        <Link href={`/settings/sites/${site.id}`} className="font-medium text-zinc-900 hover:underline">
           {site.name}
         </Link>
       </td>
@@ -44,7 +44,7 @@ async function SiteRows() {
 export default function SitesPage() {
   return (
     <main>
-      <PageHeader title="Sites" actionHref="/sites/new" actionLabel="Add site" />
+      <PageHeader title="Sites" actionHref="/settings/sites/new" actionLabel="Add site" />
       <div className={tableWrapCls}>
         <table className={tableCls}>
           <thead className={theadCls}>

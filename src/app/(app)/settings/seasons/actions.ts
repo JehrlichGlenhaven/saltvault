@@ -20,8 +20,8 @@ export async function createSeason(_prev: FormState, fd: FormData): Promise<Form
   if (error) {
     return { error: isUniqueViolation(error) ? 'A season with that name already exists.' : error.message }
   }
-  revalidatePath('/seasons')
-  redirect('/seasons')
+  revalidatePath('/settings/seasons')
+  redirect('/settings/seasons')
 }
 
 export async function updateSeason(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
@@ -30,13 +30,13 @@ export async function updateSeason(id: string, _prev: FormState, fd: FormData): 
   if (error) {
     return { error: isUniqueViolation(error) ? 'A season with that name already exists.' : error.message }
   }
-  revalidatePath('/seasons')
-  redirect('/seasons')
+  revalidatePath('/settings/seasons')
+  redirect('/settings/seasons')
 }
 
 export async function deleteSeason(id: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('seasons').delete().eq('id', id)
-  revalidatePath('/seasons')
-  redirect('/seasons')
+  revalidatePath('/settings/seasons')
+  redirect('/settings/seasons')
 }

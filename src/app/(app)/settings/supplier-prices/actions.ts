@@ -58,8 +58,8 @@ export async function createSupplierPrice(_prev: FormState, fd: FormData): Promi
     effective_to: parsed.effective_to,
   })
   if (error) return { error: error.message }
-  revalidatePath('/supplier-prices')
-  redirect('/supplier-prices')
+  revalidatePath('/settings/supplier-prices')
+  redirect('/settings/supplier-prices')
 }
 
 export async function updateSupplierPrice(
@@ -83,13 +83,13 @@ export async function updateSupplierPrice(
     })
     .eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/supplier-prices')
-  redirect('/supplier-prices')
+  revalidatePath('/settings/supplier-prices')
+  redirect('/settings/supplier-prices')
 }
 
 export async function deleteSupplierPrice(id: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('supplier_prices').delete().eq('id', id)
-  revalidatePath('/supplier-prices')
-  redirect('/supplier-prices')
+  revalidatePath('/settings/supplier-prices')
+  redirect('/settings/supplier-prices')
 }

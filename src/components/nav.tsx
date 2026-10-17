@@ -10,13 +10,7 @@ const links = [
   { href: '/bills', label: 'Bills' },
   { href: '/aging', label: 'Aging' },
   { href: '/reports', label: 'Reports' },
-  { href: '/seasons', label: 'Seasons' },
-  { href: '/suppliers', label: 'Suppliers' },
-  { href: '/products', label: 'Products' },
-  { href: '/subcontractors', label: 'Subcontractors' },
-  { href: '/sites', label: 'Sites' },
-  { href: '/supplier-prices', label: 'Supplier Prices' },
-  { href: '/markup-rules', label: 'Markup Rules' },
+  { href: '/settings', label: 'Settings' },
 ]
 
 export function Nav() {

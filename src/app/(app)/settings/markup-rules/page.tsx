@@ -42,7 +42,7 @@ async function RuleRows({ isAdmin }: { isAdmin: boolean }) {
     <tr key={rule.id} className="hover:bg-zinc-50">
       <td className={tdCls}>
         {isAdmin ? (
-          <Link href={`/markup-rules/${rule.id}`} className="font-medium text-zinc-900 hover:underline">
+          <Link href={`/settings/markup-rules/${rule.id}`} className="font-medium text-zinc-900 hover:underline">
             {scopeLabel(rule)}
           </Link>
         ) : (
@@ -64,7 +64,7 @@ async function Content() {
     <main>
       <PageHeader
         title="Markup Rules"
-        actionHref={isAdmin ? '/markup-rules/new' : undefined}
+        actionHref={isAdmin ? '/settings/markup-rules/new' : undefined}
         actionLabel="Add markup rule"
       />
       {!isAdmin ? (

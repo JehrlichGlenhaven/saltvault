@@ -9,7 +9,7 @@ import { deleteMarkupRule, updateMarkupRule } from '../actions'
 import { MarkupRuleForm } from '../form'
 
 async function Editor({ params }: { params: Promise<{ id: string }> }) {
-  if ((await getMyRole()) !== 'admin') redirect('/markup-rules')
+  if ((await getMyRole()) !== 'admin') redirect('/settings/markup-rules')
 
   const { id } = await params
   const supabase = await createClient()

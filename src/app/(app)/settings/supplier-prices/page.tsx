@@ -36,7 +36,7 @@ async function PriceRows({ isAdmin }: { isAdmin: boolean }) {
     <tr key={price.id} className="hover:bg-zinc-50">
       <td className={tdCls}>
         {isAdmin ? (
-          <Link href={`/supplier-prices/${price.id}`} className="font-medium text-zinc-900 hover:underline">
+          <Link href={`/settings/supplier-prices/${price.id}`} className="font-medium text-zinc-900 hover:underline">
             {price.products?.name ?? '—'}
           </Link>
         ) : (
@@ -59,7 +59,7 @@ async function Content() {
     <main>
       <PageHeader
         title="Supplier Prices"
-        actionHref={isAdmin ? '/supplier-prices/new' : undefined}
+        actionHref={isAdmin ? '/settings/supplier-prices/new' : undefined}
         actionLabel="Add price"
       />
       {!isAdmin ? (

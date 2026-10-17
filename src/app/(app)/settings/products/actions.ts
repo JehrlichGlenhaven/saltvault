@@ -20,8 +20,8 @@ export async function createProduct(_prev: FormState, fd: FormData): Promise<For
   if (error) {
     return { error: isUniqueViolation(error) ? 'A product with that name already exists.' : error.message }
   }
-  revalidatePath('/products')
-  redirect('/products')
+  revalidatePath('/settings/products')
+  redirect('/settings/products')
 }
 
 export async function updateProduct(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
@@ -30,13 +30,13 @@ export async function updateProduct(id: string, _prev: FormState, fd: FormData):
   if (error) {
     return { error: isUniqueViolation(error) ? 'A product with that name already exists.' : error.message }
   }
-  revalidatePath('/products')
-  redirect('/products')
+  revalidatePath('/settings/products')
+  redirect('/settings/products')
 }
 
 export async function deleteProduct(id: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('products').delete().eq('id', id)
-  revalidatePath('/products')
-  redirect('/products')
+  revalidatePath('/settings/products')
+  redirect('/settings/products')
 }

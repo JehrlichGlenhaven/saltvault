@@ -26,7 +26,7 @@ async function ProductRows() {
   return products.map((product) => (
     <tr key={product.id} className="hover:bg-zinc-50">
       <td className={tdCls}>
-        <Link href={`/products/${product.id}`} className="font-medium text-zinc-900 hover:underline">
+        <Link href={`/settings/products/${product.id}`} className="font-medium text-zinc-900 hover:underline">
           {product.name}
         </Link>
       </td>
@@ -39,7 +39,7 @@ async function ProductRows() {
 export default function ProductsPage() {
   return (
     <main>
-      <PageHeader title="Products" actionHref="/products/new" actionLabel="Add product" />
+      <PageHeader title="Products" actionHref="/settings/products/new" actionLabel="Add product" />
       <div className={tableWrapCls}>
         <table className={tableCls}>
           <thead className={theadCls}>

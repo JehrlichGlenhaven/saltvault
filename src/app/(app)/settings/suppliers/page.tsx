@@ -26,7 +26,7 @@ async function SupplierRows() {
   return suppliers.map((supplier) => (
     <tr key={supplier.id} className="hover:bg-zinc-50">
       <td className={tdCls}>
-        <Link href={`/suppliers/${supplier.id}`} className="font-medium text-zinc-900 hover:underline">
+        <Link href={`/settings/suppliers/${supplier.id}`} className="font-medium text-zinc-900 hover:underline">
           {supplier.name}
         </Link>
       </td>
@@ -40,7 +40,7 @@ async function SupplierRows() {
 export default function SuppliersPage() {
   return (
     <main>
-      <PageHeader title="Suppliers" actionHref="/suppliers/new" actionLabel="Add supplier" />
+      <PageHeader title="Suppliers" actionHref="/settings/suppliers/new" actionLabel="Add supplier" />
       <div className={tableWrapCls}>
         <table className={tableCls}>
           <thead className={theadCls}>

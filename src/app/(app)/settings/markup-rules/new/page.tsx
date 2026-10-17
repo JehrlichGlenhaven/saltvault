@@ -8,7 +8,7 @@ import { createMarkupRule } from '../actions'
 import { MarkupRuleForm } from '../form'
 
 async function NewRule() {
-  if ((await getMyRole()) !== 'admin') redirect('/markup-rules')
+  if ((await getMyRole()) !== 'admin') redirect('/settings/markup-rules')
 
   const supabase = await createClient()
   const [{ data: products }, { data: subs }] = await Promise.all([

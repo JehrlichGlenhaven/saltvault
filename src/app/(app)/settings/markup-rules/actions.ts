@@ -69,8 +69,8 @@ export async function createMarkupRule(_prev: FormState, fd: FormData): Promise<
     effective_to: parsed.effective_to,
   })
   if (error) return { error: error.message }
-  revalidatePath('/markup-rules')
-  redirect('/markup-rules')
+  revalidatePath('/settings/markup-rules')
+  redirect('/settings/markup-rules')
 }
 
 export async function updateMarkupRule(
@@ -95,13 +95,13 @@ export async function updateMarkupRule(
     })
     .eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/markup-rules')
-  redirect('/markup-rules')
+  revalidatePath('/settings/markup-rules')
+  redirect('/settings/markup-rules')
 }
 
 export async function deleteMarkupRule(id: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('markup_rules').delete().eq('id', id)
-  revalidatePath('/markup-rules')
-  redirect('/markup-rules')
+  revalidatePath('/settings/markup-rules')
+  redirect('/settings/markup-rules')
 }

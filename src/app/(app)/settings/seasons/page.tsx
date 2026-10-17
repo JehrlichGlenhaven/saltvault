@@ -29,7 +29,7 @@ async function SeasonRows() {
   return seasons.map((season) => (
     <tr key={season.id} className="hover:bg-zinc-50">
       <td className={tdCls}>
-        <Link href={`/seasons/${season.id}`} className="font-medium text-zinc-900 hover:underline">
+        <Link href={`/settings/seasons/${season.id}`} className="font-medium text-zinc-900 hover:underline">
           {season.name}
         </Link>
       </td>
@@ -43,7 +43,7 @@ async function SeasonRows() {
 export default function SeasonsPage() {
   return (
     <main>
-      <PageHeader title="Seasons" actionHref="/seasons/new" actionLabel="Add season" />
+      <PageHeader title="Seasons" actionHref="/settings/seasons/new" actionLabel="Add season" />
       <div className={tableWrapCls}>
         <table className={tableCls}>
           <thead className={theadCls}>
