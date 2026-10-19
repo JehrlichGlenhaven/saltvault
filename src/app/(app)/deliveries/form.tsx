@@ -45,8 +45,8 @@ export function DeliveryForm({
   const [costPerTon, setCostPerTon] = useState(
     initial ? String(initial.cost_per_ton) : ''
   )
-  const [sellPerTon, setSellPerTon] = useState(
-    initial ? String(initial.sell_per_ton) : ''
+  const [markupPerTon, setMarkupPerTon] = useState(
+    initial ? String(initial.markup_per_ton) : ''
   )
   const [miscFee, setMiscFee] = useState(String(initial?.misc_fee ?? 0))
   const [quoteNote, setQuoteNote] = useState<string | null>(null)
@@ -68,13 +68,13 @@ export function DeliveryForm({
       if (cancelled) return
       if (quote.costPerTon === null) {
         setQuoteNote('No current supplier price found for that supplier + product — enter the cost manually.')
-      } else if (quote.markupPct === null) {
+      } else if (quote.markupPerTon === null) {
         setCostPerTon(String(quote.costPerTon))
-        setQuoteNote('No active markup rule found — enter the sell price manually.')
+        setQuoteNote('No active markup rule found — enter the markup manually.')
       } else {
         setCostPerTon(String(quote.costPerTon))
-        setSellPerTon(quote.sellPerTon !== null ? quote.sellPerTon.toFixed(2) : '')
-        setQuoteNote(`Auto-filled from price tables (markup ${quote.markupPct}%). Both fields stay editable.`)
+        setMarkupPerTon(quote.markupPerTon.toFixed(2))
+        setQuoteNote(`Auto-filled from price tables (markup rule ${quote.markupPct}% = $${quote.markupPerTon.toFixed(2)}/t). Both fields stay editable.`)
       }
     })
     return () => {
@@ -83,7 +83,8 @@ export function DeliveryForm({
   }, [supplierId, productId, subId])
 
   const estTons = (Number(loads) || 0) * (Number(tonsPerLoad) || 0)
-  const estRevenue = estTons * (Number(sellPerTon) || 0)
+  const sellPerTon = (Number(costPerTon) || 0) + (Number(markupPerTon) || 0)
+  const estRevenue = estTons * sellPerTon
   const estCost = estTons * (Number(costPerTon) || 0) + (Number(miscFee) || 0)
   const estMargin = estRevenue - estCost
 
@@ -216,15 +217,18 @@ export function DeliveryForm({
             className={inputCls}
           />
         </Field>
-        <Field label="Sell per ton ($)">
+        <Field
+          label="Markup per ton ($)"
+          hint={`Sell price: $${sellPerTon.toFixed(2)}/t (cost + markup)`}
+        >
           <input
-            name="sell_per_ton"
+            name="markup_per_ton"
             type="number"
             step="0.01"
             min="0"
             required
-            value={sellPerTon}
-            onChange={(e) => setSellPerTon(e.target.value)}
+            value={markupPerTon}
+            onChange={(e) => setMarkupPerTon(e.target.value)}
             className={inputCls}
           />
         </Field>

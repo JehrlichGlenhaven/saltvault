@@ -14,7 +14,7 @@ import type { Delivery } from '@/lib/types'
 
 export type PriceQuote = {
   costPerTon: number | null
-  sellPerTon: number | null
+  markupPerTon: number | null
   markupPct: number | null
 }
 
@@ -23,7 +23,7 @@ export async function getPriceQuote(
   productId: string,
   subcontractorId: string
 ): Promise<PriceQuote> {
-  const empty = { costPerTon: null, sellPerTon: null, markupPct: null }
+  const empty = { costPerTon: null, markupPerTon: null, markupPct: null }
   if (!supplierId || !productId || !subcontractorId) return empty
 
   const supabase = await createClient()
@@ -60,12 +60,12 @@ export async function getPriceQuote(
   const rule = subRule ?? productRule ?? globalRule ?? null
 
   const markupPct = rule ? Number(rule.markup_pct) : null
-  const sellPerTon =
+  const markupPerTon =
     costPerTon !== null && markupPct !== null
-      ? Math.round(costPerTon * (1 + markupPct / 100) * 100) / 100
+      ? Math.round(costPerTon * (markupPct / 100) * 100) / 100
       : null
 
-  return { costPerTon, sellPerTon, markupPct }
+  return { costPerTon, markupPerTon, markupPct }
 }
 
 // ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ function parseDelivery(fd: FormData) {
     loads: numOrNull(fd, 'loads'),
     est_tons_per_load: numOrNull(fd, 'est_tons_per_load'),
     cost_per_ton: numOrNull(fd, 'cost_per_ton'),
-    sell_per_ton: numOrNull(fd, 'sell_per_ton'),
+    markup_per_ton: numOrNull(fd, 'markup_per_ton'),
     misc_fee: numOrNull(fd, 'misc_fee') ?? 0,
     supplier_ticket: strOrNull(fd, 'supplier_ticket'),
     notes: strOrNull(fd, 'notes'),
@@ -104,7 +104,7 @@ function validateDelivery(parsed: ReturnType<typeof parseDelivery>): string | nu
     return 'Estimated tons per load must be greater than zero.'
   }
   if (parsed.cost_per_ton === null || parsed.cost_per_ton < 0) return 'Enter a valid cost per ton.'
-  if (parsed.sell_per_ton === null || parsed.sell_per_ton < 0) return 'Enter a valid sell per ton.'
+  if (parsed.markup_per_ton === null || parsed.markup_per_ton < 0) return 'Enter a valid markup per ton.'
   return null
 }
 
@@ -240,13 +240,17 @@ export async function reconcileDelivery(
   if (actualCostPerTon === null || actualCostPerTon < 0) {
     return { error: 'Enter the actual cost per ton from the supplier invoice.' }
   }
+  const markupPerTon = numOrNull(fd, 'markup_per_ton')
+  if (markupPerTon === null || markupPerTon < 0) {
+    return { error: 'Enter the markup per ton.' }
+  }
   const supplierTicket = strOrNull(fd, 'supplier_ticket')
   const note = strOrNull(fd, 'note')
 
   const supabase = await createClient()
   const { data: existing } = await supabase
     .from('deliveries')
-    .select('reconciled_at, cost_per_ton')
+    .select('reconciled_at, cost_per_ton, markup_per_ton')
     .eq('id', id)
     .single()
   if (existing?.reconciled_at) {
@@ -259,6 +263,7 @@ export async function reconcileDelivery(
     .update({
       actual_tons: actualTons,
       cost_per_ton: actualCostPerTon,
+      markup_per_ton: markupPerTon,
       ...(supplierTicket ? { supplier_ticket: supplierTicket } : {}),
       reconciled_at: now,
       updated_at: now,
@@ -267,10 +272,13 @@ export async function reconcileDelivery(
   if (error) return { error: error.message }
 
   const costChanged = Number(existing?.cost_per_ton) !== actualCostPerTon
+  const markupChanged = Number(existing?.markup_per_ton) !== markupPerTon
   await logEvent(supabase, id, 'reconciled', {
     toStage: 'reconciled_at',
     note: `Actual tons: ${actualTons} · cost $${actualCostPerTon.toFixed(2)}/t${
       costChanged ? ` (was $${Number(existing?.cost_per_ton).toFixed(2)}/t)` : ''
+    } · markup $${markupPerTon.toFixed(2)}/t${
+      markupChanged ? ` (was $${Number(existing?.markup_per_ton).toFixed(2)}/t)` : ''
     }${note ? ` — ${note}` : ''}`,
   })
 

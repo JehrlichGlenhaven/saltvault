@@ -73,6 +73,7 @@ export type Delivery = {
   est_tons: number
   actual_tons: number | null
   cost_per_ton: number
+  markup_per_ton: number
   sell_per_ton: number
   misc_fee: number
   supplier_ticket: string | null

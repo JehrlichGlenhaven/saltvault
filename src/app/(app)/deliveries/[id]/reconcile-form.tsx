@@ -8,10 +8,12 @@ export function ReconcileForm({
   action,
   estTons,
   costPerTon,
+  markupPerTon,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>
   estTons: number
   costPerTon: number
+  markupPerTon: number
 }) {
   const [state, formAction] = useActionState(action, initialFormState)
 
@@ -42,6 +44,20 @@ export function ReconcileForm({
           min="0"
           required
           defaultValue={Number(costPerTon).toFixed(2)}
+          className={inputCls}
+        />
+      </Field>
+      <Field
+        label="Markup per ton ($)"
+        hint="Sell price to the sub becomes actual cost + this markup"
+      >
+        <input
+          name="markup_per_ton"
+          type="number"
+          step="0.01"
+          min="0"
+          required
+          defaultValue={Number(markupPerTon).toFixed(2)}
           className={inputCls}
         />
       </Field>

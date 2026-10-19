@@ -119,6 +119,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             </dd>
           </div>
           <div><dt className="text-zinc-500">Cost / ton</dt><dd className="font-medium text-zinc-900">${Number(d.cost_per_ton).toFixed(2)}</dd></div>
+          <div><dt className="text-zinc-500">Markup / ton</dt><dd className="font-medium text-zinc-900">${Number(d.markup_per_ton).toFixed(2)}</dd></div>
           <div><dt className="text-zinc-500">Sell / ton</dt><dd className="font-medium text-zinc-900">${Number(d.sell_per_ton).toFixed(2)}</dd></div>
           <div><dt className="text-zinc-500">Misc fee</dt><dd className="font-medium text-zinc-900">{fmtMoney(d.misc_fee)}</dd></div>
           <div><dt className="text-zinc-500">Revenue{reconciled ? '' : ' (est)'}</dt><dd className="font-medium text-zinc-900">{fmtMoney(deliveryRevenue(d))}</dd></div>
@@ -179,7 +180,12 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           {!reconciled ? (
             <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-sm font-medium text-zinc-900">Reconcile (supplier invoice received)</h3>
-              <ReconcileForm action={reconcileDelivery.bind(null, d.id)} estTons={deliveryTons(d)} costPerTon={d.cost_per_ton} />
+              <ReconcileForm
+                action={reconcileDelivery.bind(null, d.id)}
+                estTons={deliveryTons(d)}
+                costPerTon={d.cost_per_ton}
+                markupPerTon={d.markup_per_ton}
+              />
             </section>
           ) : null}
 
