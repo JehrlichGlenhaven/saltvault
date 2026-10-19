@@ -76,10 +76,7 @@ export function DeliveryForm({
     }
     if (!supplierId || !productId || !subId) return
     const product = products.find((p) => p.id === productId)
-    if (product?.unit === 'bag') {
-      setQuoteNote('Bagged product — enter the buy cost and markup per unit below.')
-      return
-    }
+    if (product?.unit === 'bag') return // bagged: no per-ton price lookup
     let cancelled = false
     void getPriceQuote(supplierId, productId, subId).then((quote) => {
       if (cancelled) return
@@ -382,11 +379,15 @@ export function DeliveryForm({
         <textarea name="notes" rows={2} defaultValue={initial?.notes ?? ''} className={inputCls} />
       </Field>
 
-      {quoteNote ? (
-        <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-          {quoteNote}
-        </p>
-      ) : null}
+      {(() => {
+        const noteToShow =
+          quoteNote ?? (bagged ? 'Bagged product — enter the buy cost and markup per unit below.' : null)
+        return noteToShow ? (
+          <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+            {noteToShow}
+          </p>
+        ) : null
+      })()}
 
       <div className="grid grid-cols-2 gap-4 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-4">
         <div>
