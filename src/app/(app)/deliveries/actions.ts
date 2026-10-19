@@ -132,7 +132,6 @@ function validateDelivery(parsed: ReturnType<typeof parseDelivery>): string | nu
   if (parsed.source === 'supplier' && !parsed.supplier_id) return 'Pick a supplier.'
   if (parsed.source === 'inventory') {
     if (!parsed.inventory_location_id) return 'Pick an inventory location.'
-    if (parsed.qty_mode !== 'bags') return 'Inventory sales must be bagged product (bags or pallets).'
   }
 
   if (parsed.qty_mode === 'bags') {
@@ -194,26 +193,44 @@ async function createInventoryDelivery(
   parsed: ReturnType<typeof parseDelivery>,
   userId: string | null
 ): Promise<FormState> {
-  // validateDelivery guarantees the bagged fields are present for inventory sales
-  const bpp = parsed.bags_per_pallet!
-  const sellQtyBags = parsed.sell_unit === 'pallet' ? parsed.sell_qty! * bpp : parsed.sell_qty!
-
   const { data: product } = await supabase
     .from('products')
     .select('unit')
     .eq('id', parsed.product_id)
     .single()
-  if (product?.unit !== 'bag') return { error: 'Inventory sales must use a bagged product.' }
+  const productUnit = product?.unit === 'ton' ? 'ton' : product?.unit === 'bag' ? 'bag' : null
+  if (!productUnit) return { error: 'Inventory sales need a bagged or bulk (ton) product.' }
+  if (productUnit === 'bag' && parsed.qty_mode !== 'bags') {
+    return { error: 'That is a bagged product — use the bags/pallets panel.' }
+  }
+  if (productUnit === 'ton' && parsed.qty_mode !== 'tons') {
+    return { error: 'That is a bulk product — use the loads/tons panel.' }
+  }
+
+  // quantity leaving stock, in the product's unit
+  const bpp = parsed.bags_per_pallet ?? 50
+  const sellQty =
+    productUnit === 'ton'
+      ? parsed.loads! * parsed.est_tons_per_load!
+      : parsed.sell_unit === 'pallet'
+        ? parsed.sell_qty! * bpp
+        : parsed.sell_qty!
+  const ledgerCost =
+    productUnit === 'ton'
+      ? parsed.cost_per_ton!
+      : parsed.buy_unit === 'pallet'
+        ? parsed.buy_unit_cost! / bpp
+        : parsed.buy_unit_cost!
 
   const { data: movements } = await supabase
     .from('inventory_movements')
-    .select('qty_bags')
+    .select('qty')
     .eq('location_id', parsed.inventory_location_id!)
     .eq('product_id', parsed.product_id)
-  const onHand = (movements ?? []).reduce((sum, m) => sum + Number(m.qty_bags), 0)
-  if (sellQtyBags > onHand + 0.001) {
+  const onHand = (movements ?? []).reduce((sum, m) => sum + Number(m.qty), 0)
+  if (sellQty > onHand + 0.001) {
     return {
-      error: `Not enough stock — ${Number(onHand.toFixed(2))} bags on hand at that location; you tried to sell ${sellQtyBags}.`,
+      error: `Not enough stock — ${Number(onHand.toFixed(2))} ${productUnit === 'ton' ? 'tons' : 'bags'} on hand at that location; you tried to sell ${Number(sellQty.toFixed(2))}.`,
     }
   }
 
@@ -223,9 +240,13 @@ async function createInventoryDelivery(
     .insert({
       ...parsed,
       // inventory sales are actual at creation — nothing to reconcile
-      actual_sell_qty: parsed.sell_qty,
-      actual_buy_qty: parsed.buy_qty,
-      actual_buy_unit_cost: parsed.buy_unit_cost,
+      ...(productUnit === 'ton'
+        ? { actual_tons: sellQty }
+        : {
+            actual_sell_qty: parsed.sell_qty,
+            actual_buy_qty: parsed.buy_qty,
+            actual_buy_unit_cost: parsed.buy_unit_cost,
+          }),
       reconciled_at: now,
       order_placed_at: now,
       created_by: userId,
@@ -234,13 +255,12 @@ async function createInventoryDelivery(
     .single()
   if (error) return { error: error.message }
 
-  const costPerBag = parsed.buy_unit === 'pallet' ? parsed.buy_unit_cost! / bpp : parsed.buy_unit_cost!
   await supabase.from('inventory_movements').insert({
     location_id: parsed.inventory_location_id,
     product_id: parsed.product_id,
-    qty_bags: -sellQtyBags,
+    qty: -sellQty,
     kind: 'sale',
-    unit_cost: Math.round(costPerBag * 10000) / 10000,
+    unit_cost: Math.round(ledgerCost * 10000) / 10000,
     delivery_id: data.id,
     created_by: userId,
   })
@@ -332,10 +352,10 @@ export async function deleteDelivery(id: string): Promise<void> {
   if (existing?.source === 'inventory' && existing.inventory_location_id) {
     const { data: saleMovements } = await supabase
       .from('inventory_movements')
-      .select('qty_bags')
+      .select('qty')
       .eq('delivery_id', id)
       .eq('kind', 'sale')
-    const soldBags = (saleMovements ?? []).reduce((sum, m) => sum + Math.abs(Number(m.qty_bags)), 0)
+    const soldBags = (saleMovements ?? []).reduce((sum, m) => sum + Math.abs(Number(m.qty)), 0)
     if (soldBags > 0) {
       const {
         data: { user },
@@ -343,7 +363,7 @@ export async function deleteDelivery(id: string): Promise<void> {
       await supabase.from('inventory_movements').insert({
         location_id: existing.inventory_location_id,
         product_id: existing.product_id,
-        qty_bags: soldBags,
+        qty: soldBags,
         kind: 'adjustment',
         note: 'Restored from deleted delivery',
         created_by: user?.id ?? null,

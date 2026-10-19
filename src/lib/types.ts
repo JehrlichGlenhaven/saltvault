@@ -196,7 +196,7 @@ export type InventoryMovement = {
   id: string
   location_id: string
   product_id: string
-  qty_bags: number
+  qty: number
   kind: MovementKind
   unit_cost: number | null
   reference: string | null

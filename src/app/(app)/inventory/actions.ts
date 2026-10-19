@@ -9,7 +9,7 @@ export async function receiveStock(_prev: FormState, fd: FormData): Promise<Form
   const locationId = str(fd, 'location_id')
   const productId = str(fd, 'product_id')
   const qty = numOrNull(fd, 'qty')
-  const unit = str(fd, 'unit') === 'pallet' ? 'pallet' : 'bag'
+  const unitRaw = str(fd, 'unit')
   const costPerUnit = numOrNull(fd, 'cost_per_unit')
   const bagsPerPallet = numOrNull(fd, 'bags_per_pallet')
   const reference = strOrNull(fd, 'reference')
@@ -19,15 +19,35 @@ export async function receiveStock(_prev: FormState, fd: FormData): Promise<Form
   if (!productId) return { error: 'Pick a product.' }
   if (qty === null || qty <= 0) return { error: 'Enter a quantity.' }
   if (costPerUnit === null || costPerUnit < 0) return { error: 'Enter the cost per unit.' }
-  if (unit === 'pallet' && (bagsPerPallet === null || bagsPerPallet <= 0)) {
-    return { error: 'Enter bags per pallet.' }
-  }
-
-  const bpp = bagsPerPallet ?? 50
-  const qtyBags = unit === 'pallet' ? qty * bpp : qty
-  const costPerBag = unit === 'pallet' ? costPerUnit / bpp : costPerUnit
 
   const supabase = await createClient()
+
+  const { data: product } = await supabase
+    .from('products')
+    .select('unit')
+    .eq('id', productId)
+    .single()
+  const productUnit = product?.unit === 'ton' ? 'ton' : 'bag'
+
+  let ledgerQty: number
+  let ledgerCost: number
+  let autoNote: string | null = null
+
+  if (productUnit === 'ton') {
+    // bulk product: qty and cost are per ton
+    ledgerQty = qty
+    ledgerCost = costPerUnit
+  } else {
+    const unit = unitRaw === 'pallet' ? 'pallet' : 'bag'
+    if (unit === 'pallet' && (bagsPerPallet === null || bagsPerPallet <= 0)) {
+      return { error: 'Enter bags per pallet.' }
+    }
+    const bpp = bagsPerPallet ?? 50
+    ledgerQty = unit === 'pallet' ? qty * bpp : qty
+    ledgerCost = unit === 'pallet' ? costPerUnit / bpp : costPerUnit
+    autoNote = unit === 'pallet' ? `${qty} pallet(s) × ${bpp} bags` : null
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -35,11 +55,11 @@ export async function receiveStock(_prev: FormState, fd: FormData): Promise<Form
   const { error } = await supabase.from('inventory_movements').insert({
     location_id: locationId,
     product_id: productId,
-    qty_bags: qtyBags,
+    qty: ledgerQty,
     kind: 'purchase',
-    unit_cost: Math.round(costPerBag * 10000) / 10000,
+    unit_cost: Math.round(ledgerCost * 10000) / 10000,
     reference,
-    note: note ?? (unit === 'pallet' ? `${qty} pallet(s) × ${bpp} bags` : null),
+    note: note ?? autoNote,
     created_by: user?.id ?? null,
   })
   if (error) return { error: error.message }
@@ -67,7 +87,7 @@ export async function adjustStock(_prev: FormState, fd: FormData): Promise<FormS
   const { error } = await supabase.from('inventory_movements').insert({
     location_id: locationId,
     product_id: productId,
-    qty_bags: qty,
+    qty: qty,
     kind: 'adjustment',
     note,
     created_by: user?.id ?? null,

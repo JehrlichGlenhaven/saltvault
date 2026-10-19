@@ -46,7 +46,10 @@ export function ReceiveStockForm({
   products,
 }: Props & { action: (prev: FormState, fd: FormData) => Promise<FormState> }) {
   const [state, formAction] = useActionState(action, initialFormState)
-  const [unit, setUnit] = useState<'bag' | 'pallet'>('pallet')
+  const [productId, setProductId] = useState('')
+  const [unit, setUnit] = useState<'bag' | 'pallet' | 'ton'>('pallet')
+
+  const isTon = products.find((p) => p.id === productId)?.unit === 'ton'
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
@@ -54,30 +57,56 @@ export function ReceiveStockForm({
         <LocationSelect locations={locations} />
       </Field>
       <Field label="Product">
-        <ProductSelect products={products} />
+        <select
+          name="product_id"
+          required
+          value={productId}
+          onChange={(e) => {
+            const id = e.target.value
+            setProductId(id)
+            setUnit(products.find((p) => p.id === id)?.unit === 'ton' ? 'ton' : 'pallet')
+          }}
+          className={inputCls}
+        >
+          <option value="" disabled>
+            Select…
+          </option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Quantity">
           <input name="qty" type="number" step="0.5" min="0.5" required className={inputCls} />
         </Field>
         <Field label="Unit">
-          <select
-            name="unit"
-            value={unit}
-            onChange={(e) => setUnit(e.target.value as 'bag' | 'pallet')}
-            className={inputCls}
-          >
-            <option value="pallet">pallets</option>
-            <option value="bag">bags</option>
-          </select>
+          {isTon ? (
+            <>
+              <input type="hidden" name="unit" value="ton" />
+              <input value="tons" readOnly disabled className={`${inputCls} bg-zinc-50 text-zinc-500`} />
+            </>
+          ) : (
+            <select
+              name="unit"
+              value={unit === 'ton' ? 'pallet' : unit}
+              onChange={(e) => setUnit(e.target.value as 'bag' | 'pallet')}
+              className={inputCls}
+            >
+              <option value="pallet">pallets</option>
+              <option value="bag">bags</option>
+            </select>
+          )}
         </Field>
       </div>
-      {unit === 'pallet' ? (
+      {unit === 'pallet' && !isTon ? (
         <Field label="Bags per pallet">
           <input name="bags_per_pallet" type="number" step="1" min="1" defaultValue={50} required className={inputCls} />
         </Field>
       ) : null}
-      <Field label={`Cost per ${unit} ($)`}>
+      <Field label={`Cost per ${isTon ? 'ton' : unit} ($)`}>
         <input name="cost_per_unit" type="number" step="0.01" min="0" required className={inputCls} />
       </Field>
       <Field label="Supplier invoice # / reference">
@@ -109,8 +138,8 @@ export function AdjustStockForm({
       <Field label="Product">
         <ProductSelect products={products} />
       </Field>
-      <Field label="Adjustment (bags)" hint="Negative removes stock, positive adds">
-        <input name="qty" type="number" step="1" required placeholder="e.g. -3" className={inputCls} />
+      <Field label="Adjustment quantity" hint="In the product's unit — bags for bagged, tons for bulk. Negative removes stock, positive adds.">
+        <input name="qty" type="number" step="0.5" required placeholder="e.g. -3" className={inputCls} />
       </Field>
       <Field label="Reason" hint="Required — e.g. damaged bags, count correction">
         <input name="note" required className={inputCls} />

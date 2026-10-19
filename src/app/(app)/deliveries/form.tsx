@@ -71,13 +71,28 @@ export function DeliveryForm({
 
   const selectedProduct = products.find((p) => p.id === productId)
   const inventory = source === 'inventory'
-  const bagged = inventory || selectedProduct?.unit === 'bag'
-  const visibleProducts = inventory ? products.filter((p) => p.unit === 'bag') : products
+  const bagged = selectedProduct?.unit === 'bag'
+  const visibleProducts = products
+  const stockUnit = selectedProduct?.unit === 'ton' ? 'tons' : 'bags'
   const stockKey = `${locationId}:${productId}`
   const bagsOnHand = locationId && productId ? (onHand[stockKey] ?? 0) : null
 
   // Sites belong to a sub — filter the options when a sub is chosen.
   const visibleSites = subId ? sites.filter((s) => s.subcontractor_id === subId) : sites
+
+  /** Inventory mode: prefill the cost from the last purchase at that location. */
+  const prefillFromStock = (locId: string, prodId: string) => {
+    if (!locId || !prodId) return
+    const last = lastCosts[`${locId}:${prodId}`]
+    if (last === undefined) return
+    const isTon = products.find((p) => p.id === prodId)?.unit === 'ton'
+    if (isTon) {
+      if (costPerTon === '') setCostPerTon(last.toFixed(2))
+    } else if (buyUnitCost === '') {
+      setBuyUnit('bag')
+      setBuyUnitCost(last.toFixed(2))
+    }
+  }
 
   // Auto-fill cost/markup from the per-ton price tables once supplier + product
   // + sub are chosen. Skipped for bagged products (per-ton prices don't apply)
@@ -140,11 +155,7 @@ export function DeliveryForm({
             type="button"
             onClick={() => {
               setSource(s)
-              if (s === 'inventory') {
-                setSupplierId('')
-                const current = products.find((p) => p.id === productId)
-                if (current && current.unit !== 'bag') setProductId('')
-              }
+              if (s === 'inventory') setSupplierId('')
             }}
             className={`rounded-md px-3 py-1.5 text-sm font-medium ${
               source === s
@@ -176,7 +187,7 @@ export function DeliveryForm({
             label="Inventory location"
             hint={
               bagsOnHand !== null
-                ? `${bagsOnHand} bags on hand${lastCosts[stockKey] !== undefined ? ` · last cost $${lastCosts[stockKey].toFixed(2)}/bag` : ''}`
+                ? `${bagsOnHand} ${stockUnit} on hand${lastCosts[stockKey] !== undefined ? ` · last cost $${lastCosts[stockKey].toFixed(2)}/${stockUnit === 'tons' ? 't' : 'bag'}` : ''}`
                 : 'Which stock to draw from'
             }
           >
@@ -187,11 +198,7 @@ export function DeliveryForm({
               onChange={(e) => {
                 const loc = e.target.value
                 setLocationId(loc)
-                const last = lastCosts[`${loc}:${productId}`]
-                if (last !== undefined && buyUnitCost === '') {
-                  setBuyUnit('bag')
-                  setBuyUnitCost(last.toFixed(2))
-                }
+                prefillFromStock(loc, productId)
               }}
               className={inputCls}
             >
@@ -233,13 +240,7 @@ export function DeliveryForm({
             onChange={(e) => {
               const prod = e.target.value
               setProductId(prod)
-              if (inventory) {
-                const last = lastCosts[`${locationId}:${prod}`]
-                if (last !== undefined && buyUnitCost === '') {
-                  setBuyUnit('bag')
-                  setBuyUnitCost(last.toFixed(2))
-                }
-              }
+              if (inventory) prefillFromStock(locationId, prod)
             }}
             className={inputCls}
           >

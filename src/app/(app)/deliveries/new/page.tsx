@@ -17,7 +17,7 @@ async function NewDelivery() {
       supabase.from('inventory_locations').select('*').order('name'),
       supabase
         .from('inventory_movements')
-        .select('location_id, product_id, qty_bags, kind, unit_cost')
+        .select('location_id, product_id, qty, kind, unit_cost')
         .order('created_at', { ascending: false })
         .limit(5000),
     ])
@@ -30,7 +30,7 @@ async function NewDelivery() {
   const lastCosts: Record<string, number> = {}
   for (const m of movements ?? []) {
     const key = `${m.location_id}:${m.product_id}`
-    onHand[key] = (onHand[key] ?? 0) + Number(m.qty_bags)
+    onHand[key] = (onHand[key] ?? 0) + Number(m.qty)
     if (m.kind === 'purchase' && m.unit_cost !== null && !(key in lastCosts)) {
       lastCosts[key] = Number(m.unit_cost)
     }

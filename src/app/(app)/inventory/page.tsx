@@ -9,7 +9,7 @@ import { AdjustStockForm, LocationForm, ReceiveStockForm } from './forms'
 
 type MovementRow = InventoryMovement & {
   inventory_locations: { name: string } | null
-  products: { name: string } | null
+  products: { name: string; unit: string } | null
 }
 
 const KIND_STYLES: Record<string, string> = {
@@ -23,10 +23,10 @@ async function Content() {
 
   const [{ data: locations }, { data: products }, { data: movements }] = await Promise.all([
     supabase.from('inventory_locations').select('*').order('name'),
-    supabase.from('products').select('*').eq('unit', 'bag').eq('active', true).order('name'),
+    supabase.from('products').select('*').eq('active', true).order('name'),
     supabase
       .from('inventory_movements')
-      .select('*, inventory_locations(name), products(name)')
+      .select('*, inventory_locations(name), products(name, unit)')
       .order('created_at', { ascending: false })
       .limit(500),
   ])
@@ -38,26 +38,27 @@ async function Content() {
   // On hand per location × product, with value at movement costs
   const stock = new Map<
     string,
-    { location: string; product: string; bags: number; value: number; hasCost: boolean }
+    { location: string; product: string; unit: string; qty: number; value: number; hasCost: boolean }
   >()
   for (const m of rows) {
     const key = `${m.location_id}:${m.product_id}`
     const entry = stock.get(key) ?? {
       location: m.inventory_locations?.name ?? '—',
       product: m.products?.name ?? '—',
-      bags: 0,
+      unit: m.products?.unit === 'ton' ? 'ton' : 'bag',
+      qty: 0,
       value: 0,
       hasCost: false,
     }
-    entry.bags += Number(m.qty_bags)
+    entry.qty += Number(m.qty)
     if (m.unit_cost !== null) {
-      entry.value += Number(m.qty_bags) * Number(m.unit_cost)
+      entry.value += Number(m.qty) * Number(m.unit_cost)
       entry.hasCost = true
     }
     stock.set(key, entry)
   }
   const onHand = [...stock.values()]
-    .filter((s) => s.bags > 0.001)
+    .filter((s) => s.qty > 0.001)
     .sort((a, b) => a.location.localeCompare(b.location) || a.product.localeCompare(b.product))
   const totalValue = onHand.reduce((sum, s) => sum + s.value, 0)
 
@@ -79,9 +80,9 @@ async function Content() {
               <tr>
                 <th className={thCls}>Location</th>
                 <th className={thCls}>Product</th>
-                <th className={thCls}>Bags</th>
+                <th className={thCls}>On hand</th>
                 <th className={thCls}>≈ Pallets</th>
-                <th className={thCls}>Avg cost / bag</th>
+                <th className={thCls}>Avg cost / unit</th>
                 <th className={thCls}>Value</th>
               </tr>
             </thead>
@@ -93,9 +94,9 @@ async function Content() {
                   <tr key={`${s.location}:${s.product}`} className="hover:bg-zinc-50">
                     <td className={`${tdCls} font-medium text-zinc-900`}>{s.location}</td>
                     <td className={tdCls}>{s.product}</td>
-                    <td className={tdCls}>{Number(s.bags.toFixed(2))}</td>
-                    <td className={tdCls}>{(s.bags / 50).toFixed(2)}</td>
-                    <td className={tdCls}>{s.hasCost && s.bags > 0 ? `$${(s.value / s.bags).toFixed(2)}` : '—'}</td>
+                    <td className={tdCls}>{Number(s.qty.toFixed(2))} {s.unit === 'ton' ? 't' : 'bags'}</td>
+                    <td className={tdCls}>{s.unit === 'bag' ? (s.qty / 50).toFixed(2) : '—'}</td>
+                    <td className={tdCls}>{s.hasCost && s.qty > 0 ? `$${(s.value / s.qty).toFixed(2)}` : '—'}</td>
                     <td className={tdCls}>{fmtMoney(s.value)}</td>
                   </tr>
                 ))
@@ -103,7 +104,7 @@ async function Content() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs text-zinc-400">Pallet equivalent assumes 50 bags per pallet.</p>
+        <p className="mt-2 text-xs text-zinc-400">Bagged quantities in bags (pallet equivalent assumes 50); bulk in tons.</p>
       </section>
 
       {/* Forms */}
@@ -133,7 +134,7 @@ async function Content() {
                 <th className={thCls}>Kind</th>
                 <th className={thCls}>Location</th>
                 <th className={thCls}>Product</th>
-                <th className={thCls}>Qty (bags)</th>
+                <th className={thCls}>Qty</th>
                 <th className={thCls}>Cost / bag</th>
                 <th className={thCls}>Reference / note</th>
               </tr>
@@ -152,9 +153,9 @@ async function Content() {
                     </td>
                     <td className={tdCls}>{m.inventory_locations?.name ?? '—'}</td>
                     <td className={tdCls}>{m.products?.name ?? '—'}</td>
-                    <td className={`${tdCls} font-medium ${Number(m.qty_bags) > 0 ? 'text-green-700' : 'text-zinc-900'}`}>
-                      {Number(m.qty_bags) > 0 ? '+' : ''}
-                      {Number(m.qty_bags)}
+                    <td className={`${tdCls} font-medium ${Number(m.qty) > 0 ? 'text-green-700' : 'text-zinc-900'}`}>
+                      {Number(m.qty) > 0 ? '+' : ''}
+                      {Number(m.qty)} {m.products?.unit === 'ton' ? 't' : 'bags'}
                     </td>
                     <td className={tdCls}>{m.unit_cost !== null ? `$${Number(m.unit_cost).toFixed(2)}` : '—'}</td>
                     <td className={tdCls}>
