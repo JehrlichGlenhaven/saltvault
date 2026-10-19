@@ -16,6 +16,10 @@ type ItemRow = SubInvoiceItem & {
     order_placed_at: string | null
     actual_tons: number | null
     sell_per_ton: number
+    qty_mode: 'tons' | 'bags'
+    actual_sell_qty: number | null
+    sell_unit: 'bag' | 'pallet' | null
+    sell_unit_price: number | null
     sites: { name: string } | null
     products: { name: string } | null
   } | null
@@ -29,7 +33,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     supabase.from('sub_invoices').select('*, subcontractors(name), seasons(name)').eq('id', id).single(),
     supabase
       .from('sub_invoice_items')
-      .select('*, deliveries(id, order_placed_at, actual_tons, sell_per_ton, sites(name), products(name))')
+      .select('*, deliveries(id, order_placed_at, actual_tons, sell_per_ton, qty_mode, actual_sell_qty, sell_unit, sell_unit_price, sites(name), products(name))')
       .eq('sub_invoice_id', id),
     supabase.from('payments').select('*').eq('sub_invoice_id', id).order('payment_date', { ascending: false }),
   ])
@@ -77,8 +81,8 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                 <th className={thCls}>Ordered</th>
                 <th className={thCls}>Site</th>
                 <th className={thCls}>Product</th>
-                <th className={thCls}>Actual tons</th>
-                <th className={thCls}>Sell $/t</th>
+                <th className={thCls}>Qty</th>
+                <th className={thCls}>Sell</th>
                 <th className={thCls}>Amount</th>
               </tr>
             </thead>
@@ -94,8 +98,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                   </td>
                   <td className={tdCls}>{item.deliveries?.sites?.name ?? '—'}</td>
                   <td className={tdCls}>{item.deliveries?.products?.name ?? '—'}</td>
-                  <td className={tdCls}>{item.deliveries?.actual_tons !== null && item.deliveries?.actual_tons !== undefined ? `${Number(item.deliveries.actual_tons).toFixed(2)} t` : '—'}</td>
-                  <td className={tdCls}>{item.deliveries ? `$${Number(item.deliveries.sell_per_ton).toFixed(2)}` : '—'}</td>
+                  <td className={tdCls}>
+                    {!item.deliveries ? '—' : item.deliveries.qty_mode === 'bags'
+                      ? `${item.deliveries.actual_sell_qty ?? '—'} ${item.deliveries.sell_unit}(s)`
+                      : `${Number(item.deliveries.actual_tons).toFixed(2)} t`}
+                  </td>
+                  <td className={tdCls}>
+                    {!item.deliveries ? '—' : item.deliveries.qty_mode === 'bags'
+                      ? `$${Number(item.deliveries.sell_unit_price ?? 0).toFixed(2)}/${item.deliveries.sell_unit}`
+                      : `$${Number(item.deliveries.sell_per_ton).toFixed(2)}/t`}
+                  </td>
                   <td className={`${tdCls} font-medium text-zinc-900`}>{fmtMoney(item.amount)}</td>
                 </tr>
               ))}

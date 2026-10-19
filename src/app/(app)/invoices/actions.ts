@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isUniqueViolation, numOrNull, str, strOrNull, type FormState } from '@/lib/forms'
 import { logDeliveryEvent } from '@/lib/log'
+import { deliveryRevenue } from '@/lib/money'
 import { refreshSubInvoiceStatus } from '@/lib/refresh'
 import type { Delivery } from '@/lib/types'
 
@@ -68,11 +69,11 @@ export async function createSubInvoice(_prev: FormState, fd: FormData): Promise<
 
   const now = new Date().toISOString()
   for (const d of rows) {
-    const amount = Number(d.actual_tons) * Number(d.sell_per_ton)
+    const amount = Math.round(deliveryRevenue(d) * 100) / 100
     await supabase.from('sub_invoice_items').insert({
       sub_invoice_id: invoice.id,
       delivery_id: d.id,
-      amount: Math.round(amount * 100) / 100,
+      amount,
     })
     await supabase
       .from('deliveries')

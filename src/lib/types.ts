@@ -76,6 +76,18 @@ export type Delivery = {
   markup_per_ton: number
   sell_per_ton: number
   misc_fee: number
+  qty_mode: 'tons' | 'bags'
+  buy_unit: 'bag' | 'pallet' | null
+  buy_qty: number | null
+  buy_unit_cost: number | null
+  sell_unit: 'bag' | 'pallet' | null
+  sell_qty: number | null
+  sell_markup_per_unit: number | null
+  sell_unit_price: number | null
+  bags_per_pallet: number | null
+  actual_sell_qty: number | null
+  actual_buy_qty: number | null
+  actual_buy_unit_cost: number | null
   supplier_ticket: string | null
   notes: string | null
   order_placed_at: string | null

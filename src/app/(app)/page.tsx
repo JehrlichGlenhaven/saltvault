@@ -50,7 +50,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ season_id?: s
 
   const deliveredLoads = rows
     .filter((d) => d.delivered_at !== null)
-    .reduce((sum, d) => sum + Number(d.loads), 0)
+    .reduce((sum, d) => sum + (d.qty_mode === 'bags' ? 0 : Number(d.loads)), 0)
 
   return (
     <main className="flex flex-col gap-8">

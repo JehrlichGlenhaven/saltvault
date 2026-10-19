@@ -5,7 +5,7 @@ import { EmptyRow, PageHeader, tableCls, tableWrapCls, tdCls, thCls, theadCls } 
 import { inputCls } from '@/components/forms'
 import { fmtDate, fmtMoney } from '@/lib/format'
 import { MILESTONES, currentStageLabel, milestoneLabel } from '@/lib/milestones'
-import { deliveryCost, deliveryMargin, deliveryRevenue, deliveryTons } from '@/lib/money'
+import { deliveryCost, deliveryMargin, deliveryRevenue, isBagged, qtyDisplay } from '@/lib/money'
 import { aggregate, fetchOutstanding, fetchReportRows, type ReportFilters } from '@/lib/report'
 import type { Season } from '@/lib/types'
 
@@ -232,7 +232,7 @@ async function Content({ searchParams }: { searchParams: Promise<ReportFilters> 
                 <th className={thCls}>Site</th>
                 <th className={thCls}>Product</th>
                 <th className={thCls}>Loads</th>
-                <th className={thCls}>Tons</th>
+                <th className={thCls}>Qty</th>
                 <th className={thCls}>Revenue</th>
                 <th className={thCls}>Cost</th>
                 <th className={thCls}>Margin</th>
@@ -245,7 +245,6 @@ async function Content({ searchParams }: { searchParams: Promise<ReportFilters> 
                 <EmptyRow colSpan={11}>No deliveries in this range.</EmptyRow>
               ) : (
                 rows.map((d) => {
-                  const reconciled = d.actual_tons !== null
                   const revenue = deliveryRevenue(d)
                   const margin = deliveryMargin(d)
                   return (
@@ -258,8 +257,8 @@ async function Content({ searchParams }: { searchParams: Promise<ReportFilters> 
                       <td className={tdCls}>{d.subcontractors?.name ?? '—'}</td>
                       <td className={tdCls}>{d.sites?.name ?? '—'}</td>
                       <td className={tdCls}>{d.products?.name ?? '—'}</td>
-                      <td className={tdCls}>{d.loads}</td>
-                      <td className={tdCls}>{deliveryTons(d).toFixed(1)}{reconciled ? '' : ' (est)'}</td>
+                      <td className={tdCls}>{isBagged(d) ? '—' : d.loads}</td>
+                      <td className={tdCls}>{qtyDisplay(d)}</td>
                       <td className={tdCls}>{fmtMoney(revenue)}</td>
                       <td className={tdCls}>{fmtMoney(deliveryCost(d))}</td>
                       <td className={`${tdCls} ${marginClass(margin)}`}>{fmtMoney(margin)}</td>

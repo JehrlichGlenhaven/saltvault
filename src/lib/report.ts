@@ -77,7 +77,7 @@ export function aggregate(rows: ReportRow[]): ReportAggregates {
     const revenue = deliveryRevenue(row)
     const cost = deliveryCost(row)
     const margin = deliveryMargin(row)
-    const loads = Number(row.loads)
+    const loads = row.qty_mode === 'bags' ? 0 : Number(row.loads)
 
     totals.loads += loads
     totals.tons += tons

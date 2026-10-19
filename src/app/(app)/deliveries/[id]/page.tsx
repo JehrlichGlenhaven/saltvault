@@ -4,7 +4,7 @@ import { DeleteButton } from '@/components/delete-button'
 import { PageHeader } from '@/components/page'
 import { fmtDateTime, fmtMoney } from '@/lib/format'
 import { MILESTONES, currentStageLabel, milestoneLabel } from '@/lib/milestones'
-import { deliveryCost, deliveryMargin, deliveryRevenue, deliveryTons, marginPct } from '@/lib/money'
+import { deliveryCost, deliveryMargin, deliveryRevenue, isBagged, isReconciled, marginPct } from '@/lib/money'
 import { createClient } from '@/lib/supabase/server'
 import type {
   Delivery,
@@ -89,7 +89,8 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   )
 
   const d = delivery as unknown as DeliveryRow
-  const reconciled = d.actual_tons !== null
+  const bagged = isBagged(d)
+  const reconciled = isReconciled(d)
   const pct = marginPct(d)
 
   return (
@@ -111,16 +112,40 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           <div><dt className="text-zinc-500">Season</dt><dd className="font-medium text-zinc-900">{d.seasons?.name ?? '—'}</dd></div>
           <div><dt className="text-zinc-500">Supplier</dt><dd className="font-medium text-zinc-900">{d.suppliers?.name ?? '—'}</dd></div>
           <div><dt className="text-zinc-500">Product</dt><dd className="font-medium text-zinc-900">{d.products?.name ?? '—'}</dd></div>
-          <div><dt className="text-zinc-500">Loads</dt><dd className="font-medium text-zinc-900">{d.loads}</dd></div>
-          <div>
-            <dt className="text-zinc-500">Tonnage</dt>
-            <dd className="font-medium text-zinc-900">
-              {reconciled ? `${Number(d.actual_tons).toFixed(2)} t (actual)` : `${d.est_tons.toFixed(1)} t (est)`}
-            </dd>
-          </div>
-          <div><dt className="text-zinc-500">Cost / ton</dt><dd className="font-medium text-zinc-900">${Number(d.cost_per_ton).toFixed(2)}</dd></div>
-          <div><dt className="text-zinc-500">Markup / ton</dt><dd className="font-medium text-zinc-900">${Number(d.markup_per_ton).toFixed(2)}</dd></div>
-          <div><dt className="text-zinc-500">Sell / ton</dt><dd className="font-medium text-zinc-900">${Number(d.sell_per_ton).toFixed(2)}</dd></div>
+          {!bagged ? (
+            <>
+              <div><dt className="text-zinc-500">Loads</dt><dd className="font-medium text-zinc-900">{d.loads}</dd></div>
+              <div>
+                <dt className="text-zinc-500">Tonnage</dt>
+                <dd className="font-medium text-zinc-900">
+                  {reconciled ? `${Number(d.actual_tons).toFixed(2)} t (actual)` : `${d.est_tons.toFixed(1)} t (est)`}
+                </dd>
+              </div>
+              <div><dt className="text-zinc-500">Cost / ton</dt><dd className="font-medium text-zinc-900">${Number(d.cost_per_ton).toFixed(2)}</dd></div>
+              <div><dt className="text-zinc-500">Markup / ton</dt><dd className="font-medium text-zinc-900">${Number(d.markup_per_ton).toFixed(2)}</dd></div>
+              <div><dt className="text-zinc-500">Sell / ton</dt><dd className="font-medium text-zinc-900">${Number(d.sell_per_ton).toFixed(2)}</dd></div>
+            </>
+          ) : (
+            <>
+              <div>
+                <dt className="text-zinc-500">We bought</dt>
+                <dd className="font-medium text-zinc-900">
+                  {d.actual_buy_qty ?? d.buy_qty} {d.buy_unit}(s) @ ${Number(d.actual_buy_unit_cost ?? d.buy_unit_cost ?? 0).toFixed(2)}
+                  {reconciled ? '' : ' (est)'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-zinc-500">Sub bought</dt>
+                <dd className="font-medium text-zinc-900">
+                  {d.actual_sell_qty ?? d.sell_qty} {d.sell_unit}(s)
+                  {reconciled ? '' : ' (est)'}
+                </dd>
+              </div>
+              <div><dt className="text-zinc-500">Bags / pallet</dt><dd className="font-medium text-zinc-900">{d.bags_per_pallet ?? '—'}</dd></div>
+              <div><dt className="text-zinc-500">Markup / {d.sell_unit}</dt><dd className="font-medium text-zinc-900">${Number(d.sell_markup_per_unit ?? 0).toFixed(2)}</dd></div>
+              <div><dt className="text-zinc-500">Sell / {d.sell_unit}</dt><dd className="font-medium text-zinc-900">${Number(d.sell_unit_price ?? 0).toFixed(2)}</dd></div>
+            </>
+          )}
           <div><dt className="text-zinc-500">Misc fee</dt><dd className="font-medium text-zinc-900">{fmtMoney(d.misc_fee)}</dd></div>
           <div><dt className="text-zinc-500">Revenue{reconciled ? '' : ' (est)'}</dt><dd className="font-medium text-zinc-900">{fmtMoney(deliveryRevenue(d))}</dd></div>
           <div><dt className="text-zinc-500">Cost{reconciled ? '' : ' (est)'}</dt><dd className="font-medium text-zinc-900">{fmtMoney(deliveryCost(d))}</dd></div>
@@ -180,12 +205,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           {!reconciled ? (
             <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-sm font-medium text-zinc-900">Reconcile (supplier invoice received)</h3>
-              <ReconcileForm
-                action={reconcileDelivery.bind(null, d.id)}
-                estTons={deliveryTons(d)}
-                costPerTon={d.cost_per_ton}
-                markupPerTon={d.markup_per_ton}
-              />
+              <ReconcileForm action={reconcileDelivery.bind(null, d.id)} delivery={d} />
             </section>
           ) : null}
 

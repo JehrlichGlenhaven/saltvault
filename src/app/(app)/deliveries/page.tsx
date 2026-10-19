@@ -6,7 +6,7 @@ import { EmptyRow, PageHeader, tableCls, tableWrapCls, tdCls, thCls, theadCls } 
 import { inputCls } from '@/components/forms'
 import { fmtDate, fmtMoney } from '@/lib/format'
 import { MILESTONES, currentStage, currentStageLabel } from '@/lib/milestones'
-import { deliveryMargin, deliveryTons } from '@/lib/money'
+import { deliveryMargin, isBagged, isReconciled, qtyDisplay } from '@/lib/money'
 import type { Delivery, Season, Site, Subcontractor } from '@/lib/types'
 
 type DeliveryRow = Delivery & {
@@ -130,8 +130,8 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
               <th className={thCls}>Site</th>
               <th className={thCls}>Product</th>
               <th className={thCls}>Loads</th>
-              <th className={thCls}>Tons</th>
-              <th className={thCls}>Sell $/t</th>
+              <th className={thCls}>Qty</th>
+              <th className={thCls}>Sell</th>
               <th className={thCls}>Margin</th>
               <th className={thCls}>Stage</th>
             </tr>
@@ -147,7 +147,7 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
               <EmptyRow colSpan={9}>No deliveries match these filters.</EmptyRow>
             ) : (
               deliveries.map((d) => {
-                const reconciled = d.actual_tons !== null
+                const reconciled = isReconciled(d)
                 return (
                   <ClickableRow key={d.id} href={`/deliveries/${d.id}`}>
                     <td className={tdCls}>
@@ -156,12 +156,13 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
                     <td className={tdCls}>{d.subcontractors?.name ?? '—'}</td>
                     <td className={tdCls}>{d.sites?.name ?? '—'}</td>
                     <td className={tdCls}>{d.products?.name ?? '—'}</td>
-                    <td className={tdCls}>{d.loads}</td>
+                    <td className={tdCls}>{isBagged(d) ? '—' : d.loads}</td>
+                    <td className={tdCls}>{qtyDisplay(d)}</td>
                     <td className={tdCls}>
-                      {deliveryTons(d).toFixed(1)}
-                      {reconciled ? '' : ' (est)'}
+                      {isBagged(d)
+                        ? `$${Number(d.sell_unit_price ?? 0).toFixed(2)}/${d.sell_unit}`
+                        : `$${Number(d.sell_per_ton).toFixed(2)}/t`}
                     </td>
-                    <td className={tdCls}>${Number(d.sell_per_ton).toFixed(2)}</td>
                     <td className={`${tdCls} ${deliveryMargin(d) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                       {fmtMoney(deliveryMargin(d))}
                       {reconciled ? '' : ' (est)'}

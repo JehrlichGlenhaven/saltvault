@@ -17,6 +17,10 @@ type ItemRow = SupplierBillItem & {
     actual_tons: number | null
     cost_per_ton: number
     misc_fee: number
+    qty_mode: 'tons' | 'bags'
+    actual_buy_qty: number | null
+    buy_unit: 'bag' | 'pallet' | null
+    actual_buy_unit_cost: number | null
     subcontractors: { name: string } | null
     sites: { name: string } | null
     products: { name: string } | null
@@ -31,7 +35,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     supabase.from('supplier_bills').select('*, suppliers(name), seasons(name)').eq('id', id).single(),
     supabase
       .from('supplier_bill_items')
-      .select('*, deliveries(id, order_placed_at, actual_tons, cost_per_ton, misc_fee, subcontractors(name), sites(name), products(name))')
+      .select('*, deliveries(id, order_placed_at, actual_tons, cost_per_ton, misc_fee, qty_mode, actual_buy_qty, buy_unit, actual_buy_unit_cost, subcontractors(name), sites(name), products(name))')
       .eq('supplier_bill_id', id),
     supabase.from('payments').select('*').eq('supplier_bill_id', id).order('payment_date', { ascending: false }),
   ])
@@ -80,8 +84,8 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                 <th className={thCls}>Sub</th>
                 <th className={thCls}>Site</th>
                 <th className={thCls}>Product</th>
-                <th className={thCls}>Actual tons</th>
-                <th className={thCls}>Cost $/t</th>
+                <th className={thCls}>Qty</th>
+                <th className={thCls}>Cost</th>
                 <th className={thCls}>Amount</th>
               </tr>
             </thead>
@@ -98,8 +102,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                   <td className={tdCls}>{item.deliveries?.subcontractors?.name ?? '—'}</td>
                   <td className={tdCls}>{item.deliveries?.sites?.name ?? '—'}</td>
                   <td className={tdCls}>{item.deliveries?.products?.name ?? '—'}</td>
-                  <td className={tdCls}>{item.deliveries?.actual_tons !== null && item.deliveries?.actual_tons !== undefined ? `${Number(item.deliveries.actual_tons).toFixed(2)} t` : '—'}</td>
-                  <td className={tdCls}>{item.deliveries ? `$${Number(item.deliveries.cost_per_ton).toFixed(2)}` : '—'}</td>
+                  <td className={tdCls}>
+                    {!item.deliveries ? '—' : item.deliveries.qty_mode === 'bags'
+                      ? `${item.deliveries.actual_buy_qty ?? '—'} ${item.deliveries.buy_unit}(s)`
+                      : `${Number(item.deliveries.actual_tons).toFixed(2)} t`}
+                  </td>
+                  <td className={tdCls}>
+                    {!item.deliveries ? '—' : item.deliveries.qty_mode === 'bags'
+                      ? `$${Number(item.deliveries.actual_buy_unit_cost ?? 0).toFixed(2)}/${item.deliveries.buy_unit}`
+                      : `$${Number(item.deliveries.cost_per_ton).toFixed(2)}/t`}
+                  </td>
                   <td className={`${tdCls} font-medium text-zinc-900`}>{fmtMoney(item.amount)}</td>
                 </tr>
               ))}

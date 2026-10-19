@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { numOrNull, str, strOrNull, type FormState } from '@/lib/forms'
 import { MILESTONE_KEYS, currentStage, milestoneLabel, type MilestoneKey } from '@/lib/milestones'
+import { costPerSellUnit } from '@/lib/money'
 import type { Delivery } from '@/lib/types'
 
 // ---------------------------------------------------------------------------
@@ -73,19 +74,52 @@ export async function getPriceQuote(
 // ---------------------------------------------------------------------------
 
 function parseDelivery(fd: FormData) {
-  return {
+  const base = {
     season_id: str(fd, 'season_id'),
     supplier_id: str(fd, 'supplier_id'),
     product_id: str(fd, 'product_id'),
     subcontractor_id: str(fd, 'subcontractor_id'),
     site_id: str(fd, 'site_id'),
+    misc_fee: numOrNull(fd, 'misc_fee') ?? 0,
+    supplier_ticket: strOrNull(fd, 'supplier_ticket'),
+    notes: strOrNull(fd, 'notes'),
+  }
+
+  if (str(fd, 'qty_mode') === 'bags') {
+    return {
+      ...base,
+      qty_mode: 'bags' as const,
+      // ton columns unused in bag mode (sell_per_ton is generated from these)
+      loads: 1,
+      est_tons_per_load: 24,
+      cost_per_ton: 0,
+      markup_per_ton: 0,
+      buy_unit: str(fd, 'buy_unit'),
+      buy_qty: numOrNull(fd, 'buy_qty'),
+      buy_unit_cost: numOrNull(fd, 'buy_unit_cost'),
+      sell_unit: str(fd, 'sell_unit'),
+      sell_qty: numOrNull(fd, 'sell_qty'),
+      sell_markup_per_unit: numOrNull(fd, 'sell_markup_per_unit'),
+      bags_per_pallet: numOrNull(fd, 'bags_per_pallet'),
+      sell_unit_price: null as number | null,
+    }
+  }
+
+  return {
+    ...base,
+    qty_mode: 'tons' as const,
     loads: numOrNull(fd, 'loads'),
     est_tons_per_load: numOrNull(fd, 'est_tons_per_load'),
     cost_per_ton: numOrNull(fd, 'cost_per_ton'),
     markup_per_ton: numOrNull(fd, 'markup_per_ton'),
-    misc_fee: numOrNull(fd, 'misc_fee') ?? 0,
-    supplier_ticket: strOrNull(fd, 'supplier_ticket'),
-    notes: strOrNull(fd, 'notes'),
+    buy_unit: null,
+    buy_qty: null,
+    buy_unit_cost: null,
+    sell_unit: null,
+    sell_qty: null,
+    sell_markup_per_unit: null,
+    bags_per_pallet: null,
+    sell_unit_price: null,
   }
 }
 
@@ -99,6 +133,33 @@ function validateDelivery(parsed: ReturnType<typeof parseDelivery>): string | nu
   ) {
     return 'Season, supplier, product, subcontractor, and site are all required.'
   }
+
+  if (parsed.qty_mode === 'bags') {
+    if (!['bag', 'pallet'].includes(parsed.buy_unit) || !['bag', 'pallet'].includes(parsed.sell_unit)) {
+      return 'Pick the buy and sell units (bags or pallets).'
+    }
+    if (parsed.buy_qty === null || parsed.buy_qty <= 0) return 'Enter the buy quantity.'
+    if (parsed.buy_unit_cost === null || parsed.buy_unit_cost < 0) return 'Enter the buy cost per unit.'
+    if (parsed.sell_qty === null || parsed.sell_qty <= 0) return 'Enter the sell quantity.'
+    if (parsed.sell_markup_per_unit === null || parsed.sell_markup_per_unit < 0) {
+      return 'Enter the markup per unit.'
+    }
+    if (parsed.bags_per_pallet === null || parsed.bags_per_pallet <= 0) return 'Enter bags per pallet.'
+    // sell price per unit = buy cost converted to the sell unit + markup
+    parsed.sell_unit_price =
+      Math.round(
+        (costPerSellUnit(
+          parsed.buy_unit as 'bag' | 'pallet',
+          parsed.sell_unit as 'bag' | 'pallet',
+          parsed.buy_unit_cost,
+          parsed.bags_per_pallet
+        ) +
+          parsed.sell_markup_per_unit) *
+          100
+      ) / 100
+    return null
+  }
+
   if (parsed.loads === null || parsed.loads <= 0) return 'Loads must be greater than zero.'
   if (parsed.est_tons_per_load === null || parsed.est_tons_per_load <= 0) {
     return 'Estimated tons per load must be greater than zero.'
@@ -232,6 +293,68 @@ export async function reconcileDelivery(
   _prev: FormState,
   fd: FormData
 ): Promise<FormState> {
+  const supplierTicket = strOrNull(fd, 'supplier_ticket')
+  const note = strOrNull(fd, 'note')
+
+  const supabase = await createClient()
+  const { data: existing } = await supabase
+    .from('deliveries')
+    .select('reconciled_at, cost_per_ton, markup_per_ton, qty_mode, buy_unit, sell_unit, bags_per_pallet')
+    .eq('id', id)
+    .single()
+  if (existing?.reconciled_at) {
+    return { error: 'This delivery is already reconciled.' }
+  }
+
+  const now = new Date().toISOString()
+
+  if (existing?.qty_mode === 'bags') {
+    const actualSellQty = numOrNull(fd, 'actual_sell_qty')
+    const actualBuyQty = numOrNull(fd, 'actual_buy_qty')
+    const actualBuyCost = numOrNull(fd, 'actual_buy_unit_cost')
+    const markup = numOrNull(fd, 'sell_markup_per_unit')
+    if (actualSellQty === null || actualSellQty <= 0) return { error: 'Enter the actual quantity delivered to the sub.' }
+    if (actualBuyQty === null || actualBuyQty <= 0) return { error: 'Enter the actual buy quantity from the supplier invoice.' }
+    if (actualBuyCost === null || actualBuyCost < 0) return { error: 'Enter the actual buy cost per unit.' }
+    if (markup === null || markup < 0) return { error: 'Enter the markup per unit.' }
+
+    const sellUnitPrice =
+      Math.round(
+        (costPerSellUnit(
+          existing.buy_unit as 'bag' | 'pallet',
+          existing.sell_unit as 'bag' | 'pallet',
+          actualBuyCost,
+          Number(existing.bags_per_pallet)
+        ) +
+          markup) *
+          100
+      ) / 100
+
+    const { error } = await supabase
+      .from('deliveries')
+      .update({
+        actual_sell_qty: actualSellQty,
+        actual_buy_qty: actualBuyQty,
+        actual_buy_unit_cost: actualBuyCost,
+        sell_markup_per_unit: markup,
+        sell_unit_price: sellUnitPrice,
+        ...(supplierTicket ? { supplier_ticket: supplierTicket } : {}),
+        reconciled_at: now,
+        updated_at: now,
+      })
+      .eq('id', id)
+    if (error) return { error: error.message }
+
+    await logEvent(supabase, id, 'reconciled', {
+      toStage: 'reconciled_at',
+      note: `Actual: sold ${actualSellQty} ${existing.sell_unit}(s) · bought ${actualBuyQty} ${existing.buy_unit}(s) @ $${actualBuyCost.toFixed(2)} · markup $${markup.toFixed(2)}/unit${note ? ` — ${note}` : ''}`,
+    })
+
+    revalidatePath('/deliveries')
+    revalidatePath(`/deliveries/${id}`)
+    redirect(`/deliveries/${id}`)
+  }
+
   const actualTons = numOrNull(fd, 'actual_tons')
   if (actualTons === null || actualTons <= 0) {
     return { error: 'Enter the actual tonnage from the supplier invoice.' }
@@ -244,20 +367,7 @@ export async function reconcileDelivery(
   if (markupPerTon === null || markupPerTon < 0) {
     return { error: 'Enter the markup per ton.' }
   }
-  const supplierTicket = strOrNull(fd, 'supplier_ticket')
-  const note = strOrNull(fd, 'note')
 
-  const supabase = await createClient()
-  const { data: existing } = await supabase
-    .from('deliveries')
-    .select('reconciled_at, cost_per_ton, markup_per_ton')
-    .eq('id', id)
-    .single()
-  if (existing?.reconciled_at) {
-    return { error: 'This delivery is already reconciled.' }
-  }
-
-  const now = new Date().toISOString()
   const { error } = await supabase
     .from('deliveries')
     .update({

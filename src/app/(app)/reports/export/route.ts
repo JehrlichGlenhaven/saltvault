@@ -1,7 +1,7 @@
 import { type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { aggregate, fetchOutstanding, fetchReportRows, type ReportFilters } from '@/lib/report'
-import { deliveryCost, deliveryMargin, deliveryRevenue, deliveryTons } from '@/lib/money'
+import { deliveryCost, deliveryMargin, deliveryRevenue, isBagged, qtyDisplay } from '@/lib/money'
 import { currentStageLabel } from '@/lib/milestones'
 import { fmtDate } from '@/lib/format'
 
@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
   } else {
     csv = toCsv([
       [
-        'Ordered', 'Subcontractor', 'Site', 'Product', 'Loads', 'Tons', 'Tons type',
-        'Cost per ton', 'Sell per ton', 'Misc fee', 'Revenue', 'Cost', 'Margin',
+        'Ordered', 'Subcontractor', 'Site', 'Product', 'Loads', 'Quantity',
+        'Cost per unit', 'Sell per unit', 'Misc fee', 'Revenue', 'Cost', 'Margin',
         'Margin %', 'Stage',
       ],
       ...rows.map((d) => {
@@ -77,11 +77,10 @@ export async function GET(request: NextRequest) {
           d.subcontractors?.name ?? '',
           d.sites?.name ?? '',
           d.products?.name ?? '',
-          d.loads,
-          deliveryTons(d).toFixed(2),
-          d.actual_tons !== null ? 'actual' : 'estimated',
-          money(d.cost_per_ton),
-          money(d.sell_per_ton),
+          isBagged(d) ? '' : d.loads,
+          qtyDisplay(d),
+          isBagged(d) ? money(d.actual_buy_unit_cost ?? d.buy_unit_cost ?? 0) : money(d.cost_per_ton),
+          isBagged(d) ? money(d.sell_unit_price ?? 0) : money(d.sell_per_ton),
           money(d.misc_fee),
           money(revenue),
           money(deliveryCost(d)),

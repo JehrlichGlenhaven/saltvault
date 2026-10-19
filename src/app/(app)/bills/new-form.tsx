@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from 'react'
 import { Field, FormError, SubmitButton, inputCls } from '@/components/forms'
 import { initialFormState, type FormState } from '@/lib/forms'
 import { fmtDate, fmtMoney } from '@/lib/format'
+import { isBagged, isReconciled } from '@/lib/money'
 import type { Delivery, Supplier } from '@/lib/types'
 
 export type BillCandidate = Delivery & {
@@ -24,7 +25,7 @@ export function NewBillForm({
   const [state, formAction] = useActionState(action, initialFormState)
   const [supplierId, setSupplierId] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [tons, setTons] = useState<Record<string, string>>({})
+  const [qtys, setQtys] = useState<Record<string, string>>({})
   const [costs, setCosts] = useState<Record<string, string>>({})
   const today = new Date().toISOString().slice(0, 10)
 
@@ -33,20 +34,33 @@ export function NewBillForm({
     [candidates, supplierId]
   )
 
-  const tonsFor = (d: BillCandidate): number => {
-    if (d.actual_tons !== null) return Number(d.actual_tons)
-    const value = tons[d.id]
-    return value !== undefined && value !== '' ? Number(value) : Number(d.est_tons)
+  const qtyFor = (d: BillCandidate): number => {
+    if (isReconciled(d)) {
+      return isBagged(d) ? Number(d.actual_buy_qty) : Number(d.actual_tons)
+    }
+    const value = qtys[d.id]
+    if (value !== undefined && value !== '') return Number(value)
+    return isBagged(d) ? Number(d.buy_qty ?? 0) : Number(d.est_tons)
   }
 
   const costFor = (d: BillCandidate): number => {
+    if (isReconciled(d)) {
+      return isBagged(d) ? Number(d.actual_buy_unit_cost) : Number(d.cost_per_ton)
+    }
     const value = costs[d.id]
-    return value !== undefined && value !== '' ? Number(value) : Number(d.cost_per_ton)
+    if (value !== undefined && value !== '') return Number(value)
+    return isBagged(d) ? Number(d.buy_unit_cost ?? 0) : Number(d.cost_per_ton)
   }
+
+  const amountFor = (d: BillCandidate): number =>
+    qtyFor(d) * costFor(d) + Number(d.misc_fee)
 
   const total = visible
     .filter((d) => selected.has(d.id))
-    .reduce((sum, d) => sum + tonsFor(d) * costFor(d) + Number(d.misc_fee), 0)
+    .reduce((sum, d) => sum + amountFor(d), 0)
+
+  const qtyLabel = (d: BillCandidate): string =>
+    isBagged(d) ? `${d.buy_unit}(s)` : 't'
 
   const toggle = (d: BillCandidate) => {
     setSelected((prev) => {
@@ -55,11 +69,15 @@ export function NewBillForm({
         next.delete(d.id)
       } else {
         next.add(d.id)
-        if (d.actual_tons === null && tons[d.id] === undefined) {
-          setTons((prevTons) => ({ ...prevTons, [d.id]: Number(d.est_tons).toFixed(2) }))
-        }
-        if (costs[d.id] === undefined) {
-          setCosts((prevCosts) => ({ ...prevCosts, [d.id]: Number(d.cost_per_ton).toFixed(2) }))
+        if (!isReconciled(d)) {
+          if (qtys[d.id] === undefined) {
+            const defaultQty = isBagged(d) ? Number(d.buy_qty ?? 0) : Number(d.est_tons)
+            setQtys((prevQtys) => ({ ...prevQtys, [d.id]: defaultQty.toFixed(2) }))
+          }
+          if (costs[d.id] === undefined) {
+            const defaultCost = isBagged(d) ? Number(d.buy_unit_cost ?? 0) : Number(d.cost_per_ton)
+            setCosts((prevCosts) => ({ ...prevCosts, [d.id]: defaultCost.toFixed(2) }))
+          }
         }
       }
       return next
@@ -122,15 +140,15 @@ export function NewBillForm({
                 <th className="px-4 py-2">Ordered</th>
                 <th className="px-4 py-2">Sub / Site</th>
                 <th className="px-4 py-2">Product</th>
-                <th className="px-4 py-2">Actual tons</th>
-                <th className="px-4 py-2">Cost $/t</th>
+                <th className="px-4 py-2">Actual qty</th>
+                <th className="px-4 py-2">Cost $/unit</th>
                 <th className="px-4 py-2">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {visible.map((d) => {
-                const amount = tonsFor(d) * Number(d.cost_per_ton) + Number(d.misc_fee)
                 const isChecked = selected.has(d.id)
+                const reconciled = isReconciled(d)
                 return (
                   <tr key={d.id} className="hover:bg-zinc-50">
                     <td className="w-10 px-4 py-2">
@@ -149,26 +167,30 @@ export function NewBillForm({
                     </td>
                     <td className="px-4 py-2 text-sm text-zinc-700">{d.products?.name ?? '—'}</td>
                     <td className="px-4 py-2 text-sm text-zinc-700">
-                      {d.actual_tons !== null ? (
-                        <span>{Number(d.actual_tons).toFixed(2)} t</span>
+                      {reconciled ? (
+                        <span>
+                          {isBagged(d) ? `${d.actual_buy_qty} ${d.buy_unit}(s)` : `${Number(d.actual_tons).toFixed(2)} t`}
+                        </span>
                       ) : isChecked ? (
                         <input
-                          name={`tons_${d.id}`}
+                          name={isBagged(d) ? `qty_${d.id}` : `tons_${d.id}`}
                           type="number"
                           step="0.01"
                           min="0.01"
                           required
-                          value={tons[d.id] ?? ''}
-                          onChange={(e) => setTons((prev) => ({ ...prev, [d.id]: e.target.value }))}
+                          value={qtys[d.id] ?? ''}
+                          onChange={(e) => setQtys((prev) => ({ ...prev, [d.id]: e.target.value }))}
                           className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-500"
                         />
                       ) : (
-                        <span className="text-zinc-400">est {Number(d.est_tons).toFixed(1)} t</span>
+                        <span className="text-zinc-400">
+                          est {isBagged(d) ? `${d.buy_qty} ${d.buy_unit}(s)` : `${Number(d.est_tons).toFixed(1)} t`}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-sm text-zinc-700">
-                      {d.actual_tons !== null ? (
-                        <span>${Number(d.cost_per_ton).toFixed(2)}/t</span>
+                      {reconciled ? (
+                        <span>${costFor(d).toFixed(2)}/{qtyLabel(d)}</span>
                       ) : isChecked ? (
                         <input
                           name={`cost_${d.id}`}
@@ -181,10 +203,10 @@ export function NewBillForm({
                           className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-500"
                         />
                       ) : (
-                        <span className="text-zinc-400">${Number(d.cost_per_ton).toFixed(2)}/t</span>
+                        <span className="text-zinc-400">${costFor(d).toFixed(2)}/{qtyLabel(d)}</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm font-medium text-zinc-900">{fmtMoney(amount)}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-zinc-900">{fmtMoney(amountFor(d))}</td>
                   </tr>
                 )
               })}
@@ -196,7 +218,7 @@ export function NewBillForm({
       <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <span className="text-sm text-zinc-500">
           {selected.size} deliver{selected.size === 1 ? 'y' : 'ies'} selected — unreconciled ones
-          will be reconciled with the tons above
+          will be reconciled with the quantities and costs above
         </span>
         <span className="text-lg font-semibold text-zinc-900">{fmtMoney(total)}</span>
       </div>

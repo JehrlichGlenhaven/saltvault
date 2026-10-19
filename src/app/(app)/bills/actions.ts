@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isUniqueViolation, numOrNull, str, strOrNull, type FormState } from '@/lib/forms'
 import { logDeliveryEvent } from '@/lib/log'
+import { costPerSellUnit, deliveryCost, isBagged, isReconciled } from '@/lib/money'
 import { refreshSupplierBillStatus } from '@/lib/refresh'
 import type { Delivery } from '@/lib/types'
 
@@ -43,24 +44,28 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
     return { error: 'One or more deliveries are already on a supplier bill.' }
   }
 
-  // Validate actual tons (and cost) for unreconciled deliveries before writing anything.
-  const tonsByDelivery = new Map<string, number>()
-  const costByDelivery = new Map<string, number>()
+  // Pre-validate the actuals for every unreconciled delivery before writing anything.
+  type Recon = { mode: 'tons' | 'bags'; qty: number; cost: number }
+  const reconByDelivery = new Map<string, Recon>()
   for (const d of rows) {
-    if (d.actual_tons !== null) {
-      tonsByDelivery.set(d.id, Number(d.actual_tons))
-      costByDelivery.set(d.id, Number(d.cost_per_ton))
+    if (isReconciled(d)) continue
+    if (isBagged(d)) {
+      const qty = numOrNull(fd, `qty_${d.id}`)
+      const cost = numOrNull(fd, `cost_${d.id}`)
+      if (qty === null || qty <= 0 || cost === null || cost < 0) {
+        return { error: 'Enter the actual buy quantity and cost per unit for every unreconciled bagged delivery.' }
+      }
+      reconByDelivery.set(d.id, { mode: 'bags', qty, cost })
     } else {
       const tons = numOrNull(fd, `tons_${d.id}`)
+      const cost = numOrNull(fd, `cost_${d.id}`)
       if (tons === null || tons <= 0) {
         return { error: 'Enter the actual tons for every unreconciled delivery.' }
       }
-      tonsByDelivery.set(d.id, tons)
-      const cost = numOrNull(fd, `cost_${d.id}`)
       if (cost === null || cost < 0) {
         return { error: 'Enter the actual cost per ton for every unreconciled delivery.' }
       }
-      costByDelivery.set(d.id, cost)
+      reconByDelivery.set(d.id, { mode: 'tons', qty: tons, cost })
     }
   }
 
@@ -87,9 +92,53 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
 
   const now = new Date().toISOString()
   for (const d of rows) {
-    const tons = tonsByDelivery.get(d.id)!
-    const cost = costByDelivery.get(d.id)!
-    const amount = Math.round((tons * cost + Number(d.misc_fee)) * 100) / 100
+    const fee = Number(d.misc_fee)
+    let amount: number
+
+    const recon = reconByDelivery.get(d.id)
+    if (!recon) {
+      // already reconciled — bill its stored actual cost
+      amount = Math.round(deliveryCost(d) * 100) / 100
+    } else if (recon.mode === 'bags') {
+      const sellPrice =
+        Math.round(
+          (costPerSellUnit(
+            d.buy_unit as 'bag' | 'pallet',
+            d.sell_unit as 'bag' | 'pallet',
+            recon.cost,
+            Number(d.bags_per_pallet)
+          ) +
+            Number(d.sell_markup_per_unit ?? 0)) *
+            100
+        ) / 100
+      // sell qty assumed delivered as ordered
+      await supabase
+        .from('deliveries')
+        .update({
+          actual_buy_qty: recon.qty,
+          actual_buy_unit_cost: recon.cost,
+          actual_sell_qty: d.sell_qty,
+          sell_unit_price: sellPrice,
+          reconciled_at: now,
+          updated_at: now,
+        })
+        .eq('id', d.id)
+      await logDeliveryEvent(supabase, d.id, 'reconciled', {
+        toStage: 'reconciled_at',
+        note: `Actual buy: ${recon.qty} ${d.buy_unit}(s) @ $${recon.cost.toFixed(2)} (via supplier bill ${billNumber})`,
+      })
+      amount = Math.round((recon.qty * recon.cost + fee) * 100) / 100
+    } else {
+      await supabase
+        .from('deliveries')
+        .update({ actual_tons: recon.qty, cost_per_ton: recon.cost, reconciled_at: now, updated_at: now })
+        .eq('id', d.id)
+      await logDeliveryEvent(supabase, d.id, 'reconciled', {
+        toStage: 'reconciled_at',
+        note: `Actual tons: ${recon.qty} · cost $${recon.cost.toFixed(2)}/t (via supplier bill ${billNumber})`,
+      })
+      amount = Math.round((recon.qty * recon.cost + fee) * 100) / 100
+    }
 
     await supabase.from('supplier_bill_items').insert({
       supplier_bill_id: bill.id,
@@ -97,17 +146,7 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
       amount,
     })
 
-    // Reconcile if needed, then stamp "supplier invoiced us".
-    if (d.actual_tons === null) {
-      await supabase
-        .from('deliveries')
-        .update({ actual_tons: tons, cost_per_ton: cost, reconciled_at: now, updated_at: now })
-        .eq('id', d.id)
-      await logDeliveryEvent(supabase, d.id, 'reconciled', {
-        toStage: 'reconciled_at',
-        note: `Actual tons: ${tons} · cost $${cost.toFixed(2)}/t (via supplier bill ${billNumber})`,
-      })
-    }
+    // Stamp "supplier invoiced us".
     await supabase
       .from('deliveries')
       .update({ supplier_invoiced_at: now, updated_at: now })

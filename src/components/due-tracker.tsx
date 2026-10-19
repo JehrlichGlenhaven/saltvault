@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { EmptyRow, tableCls, tableWrapCls, tdCls, thCls, theadCls } from '@/components/page'
 import { fmtDate, fmtMoney, APP_TIMEZONE } from '@/lib/format'
+import { qtyDisplay } from '@/lib/money'
 import type { Delivery } from '@/lib/types'
 
 type Row = Delivery & {
@@ -204,7 +205,7 @@ export async function DueTracker({ seasonId }: { seasonId?: string }) {
               <th className={thCls}>Sub</th>
               <th className={thCls}>Site</th>
               <th className={thCls}>Product</th>
-              <th className={thCls}>Tons</th>
+              <th className={thCls}>Qty</th>
               <th className={thCls}>Sub owes us</th>
               <th className={thCls}>We owe supplier</th>
             </tr>
@@ -223,10 +224,7 @@ export async function DueTracker({ seasonId }: { seasonId?: string }) {
                   <td className={tdCls}>{d.subcontractors?.name ?? '—'}</td>
                   <td className={tdCls}>{d.sites?.name ?? '—'}</td>
                   <td className={tdCls}>{d.products?.name ?? '—'}</td>
-                  <td className={tdCls}>
-                    {Number(d.actual_tons ?? d.est_tons).toFixed(1)}
-                    {d.actual_tons === null ? ' (est)' : ''}
-                  </td>
+                  <td className={tdCls}>{qtyDisplay(d)}</td>
                   <td className={tdCls}>
                     <SideCell side={subSide} hrefBase="/invoices" noneLabel="Not invoiced yet" />
                   </td>

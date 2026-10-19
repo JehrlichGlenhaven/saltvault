@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from 'react'
 import { Field, FormError, SubmitButton, inputCls } from '@/components/forms'
 import { initialFormState, type FormState } from '@/lib/forms'
 import { fmtDate, fmtMoney } from '@/lib/format'
+import { deliveryRevenue, isBagged } from '@/lib/money'
 import type { Delivery, Subcontractor } from '@/lib/types'
 
 export type InvoiceCandidate = Delivery & {
@@ -34,7 +35,7 @@ export function NewInvoiceForm({
 
   const total = visible
     .filter((d) => selected.has(d.id))
-    .reduce((sum, d) => sum + Number(d.actual_tons) * Number(d.sell_per_ton), 0)
+    .reduce((sum, d) => sum + deliveryRevenue(d), 0)
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -97,7 +98,7 @@ export function NewInvoiceForm({
           <table className="min-w-full divide-y divide-zinc-200">
             <tbody className="divide-y divide-zinc-100">
               {visible.map((d) => {
-                const amount = Number(d.actual_tons) * Number(d.sell_per_ton)
+                const amount = deliveryRevenue(d)
                 return (
                   <tr key={d.id} className="hover:bg-zinc-50">
                     <td className="w-10 px-4 py-2">
@@ -113,8 +114,14 @@ export function NewInvoiceForm({
                     <td className="px-4 py-2 text-sm text-zinc-700">{fmtDate(d.order_placed_at)}</td>
                     <td className="px-4 py-2 text-sm text-zinc-700">{d.sites?.name ?? '—'}</td>
                     <td className="px-4 py-2 text-sm text-zinc-700">{d.products?.name ?? '—'}</td>
-                    <td className="px-4 py-2 text-sm text-zinc-700">{Number(d.actual_tons).toFixed(2)} t</td>
-                    <td className="px-4 py-2 text-sm text-zinc-700">${Number(d.sell_per_ton).toFixed(2)}/t</td>
+                    <td className="px-4 py-2 text-sm text-zinc-700">
+                      {isBagged(d) ? `${d.actual_sell_qty} ${d.sell_unit}(s)` : `${Number(d.actual_tons).toFixed(2)} t`}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-zinc-700">
+                      {isBagged(d)
+                        ? `$${Number(d.sell_unit_price ?? 0).toFixed(2)}/${d.sell_unit}`
+                        : `$${Number(d.sell_per_ton).toFixed(2)}/t`}
+                    </td>
                     <td className="px-4 py-2 text-sm font-medium text-zinc-900">{fmtMoney(amount)}</td>
                   </tr>
                 )
