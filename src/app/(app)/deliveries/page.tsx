@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { ClickableRow } from '@/components/clickable-row'
 import { EmptyRow, PageHeader, tableCls, tableWrapCls, tdCls, thCls, theadCls } from '@/components/page'
 import { inputCls } from '@/components/forms'
 import { fmtDate, fmtMoney } from '@/lib/format'
@@ -148,11 +149,9 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
               deliveries.map((d) => {
                 const reconciled = d.actual_tons !== null
                 return (
-                  <tr key={d.id} className="hover:bg-zinc-50">
+                  <ClickableRow key={d.id} href={`/deliveries/${d.id}`}>
                     <td className={tdCls}>
-                      <Link href={`/deliveries/${d.id}`} className="font-medium text-zinc-900 hover:underline">
-                        {fmtDate(d.order_placed_at)}
-                      </Link>
+                      <span className="font-medium text-zinc-900">{fmtDate(d.order_placed_at)}</span>
                     </td>
                     <td className={tdCls}>{d.subcontractors?.name ?? '—'}</td>
                     <td className={tdCls}>{d.sites?.name ?? '—'}</td>
@@ -172,7 +171,7 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
                         {currentStageLabel(d)}
                       </span>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 )
               })
             )}

@@ -40,7 +40,7 @@ async function Header() {
           </form>
         </div>
       </div>
-      <div className="mt-3">
+      <div className="mt-3 flex justify-center">
         <Nav />
       </div>
     </header>
@@ -59,7 +59,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         <Header />
       </Suspense>
-      <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</div>
+      <div className="w-full flex-1 px-6 py-8 sm:px-10">{children}</div>
     </div>
   )
 }
