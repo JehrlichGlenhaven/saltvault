@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
-import { AgingSections } from '@/components/aging-sections'
+import { AgingSummary } from '@/components/aging-sections'
+import { DueTracker } from '@/components/due-tracker'
 import { inputCls } from '@/components/forms'
 import { PageHeader } from '@/components/page'
 import { fmtMoney } from '@/lib/format'
@@ -77,6 +78,10 @@ async function Content({ searchParams }: { searchParams: Promise<{ season_id?: s
         </form>
       </div>
 
+      {/* Money first: summary cards + per-delivery due date tracker */}
+      <AgingSummary seasonId={seasonId} />
+      <DueTracker seasonId={seasonId} />
+
       {/* Stats */}
       <section>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -120,9 +125,6 @@ async function Content({ searchParams }: { searchParams: Promise<{ season_id?: s
           })}
         </div>
       </section>
-
-      {/* Aging */}
-      <AgingSections seasonId={seasonId} />
 
       <p className="text-xs text-zinc-400">
         Showing {selectedSeason ? `season ${selectedSeason.name}` : 'all seasons'} — change the

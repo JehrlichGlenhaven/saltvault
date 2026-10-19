@@ -179,3 +179,76 @@ export async function AgingSections({ seasonId }: { seasonId?: string }) {
     </>
   )
 }
+
+/** Just the three summary cards — used at the top of the dashboard. */
+export async function AgingSummary({ seasonId }: { seasonId?: string }) {
+  const supabase = await createClient()
+
+  let invoicesQuery = supabase
+    .from('sub_invoices')
+    .select('id')
+    .in('status', ['open', 'partial'])
+  let billsQuery = supabase
+    .from('supplier_bills')
+    .select('id')
+    .in('status', ['open', 'partial'])
+  if (seasonId) {
+    invoicesQuery = invoicesQuery.eq('season_id', seasonId)
+    billsQuery = billsQuery.eq('season_id', seasonId)
+  }
+
+  const [
+    { data: invoices },
+    { data: invoiceItems },
+    { data: invoicePayments },
+    { data: bills },
+    { data: billItems },
+    { data: billPayments },
+  ] = await Promise.all([
+    invoicesQuery,
+    supabase.from('sub_invoice_items').select('sub_invoice_id, amount'),
+    supabase.from('payments').select('sub_invoice_id, amount').not('sub_invoice_id', 'is', null),
+    billsQuery,
+    supabase.from('supplier_bill_items').select('supplier_bill_id, amount'),
+    supabase.from('payments').select('supplier_bill_id, amount').not('supplier_bill_id', 'is', null),
+  ])
+
+  const sum = (rows: { amount: number | string }[] | null, key: string, id: string) =>
+    (rows ?? [])
+      .filter((r) => (r as Record<string, unknown>)[key] === id)
+      .reduce((s, r) => s + Number(r.amount), 0)
+
+  const balanceOf = (
+    docs: { id: string }[] | null,
+    items: { amount: number | string }[] | null,
+    payments: { amount: number | string }[] | null,
+    itemKey: string,
+    paymentKey: string
+  ) =>
+    (docs ?? []).reduce((total, doc) => {
+      const balance = sum(items, itemKey, doc.id) - sum(payments, paymentKey, doc.id)
+      return balance > 0.001 ? total + balance : total
+    }, 0)
+
+  const totalReceivable = balanceOf(invoices, invoiceItems, invoicePayments, 'sub_invoice_id', 'sub_invoice_id')
+  const totalPayable = balanceOf(bills, billItems, billPayments, 'supplier_bill_id', 'supplier_bill_id')
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="text-2xl font-semibold text-zinc-900">{fmtMoney(totalReceivable)}</div>
+        <div className="mt-1 text-sm text-zinc-500">Owed to us by subs</div>
+      </div>
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="text-2xl font-semibold text-zinc-900">{fmtMoney(totalPayable)}</div>
+        <div className="mt-1 text-sm text-zinc-500">We owe suppliers</div>
+      </div>
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className={`text-2xl font-semibold ${totalReceivable - totalPayable >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+          {fmtMoney(totalReceivable - totalPayable)}
+        </div>
+        <div className="mt-1 text-sm text-zinc-500">Net position</div>
+      </div>
+    </div>
+  )
+}
