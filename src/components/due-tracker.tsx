@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { EmptyRow, tableCls, tableWrapCls, tdCls, thCls, theadCls } from '@/components/page'
-import { fmtDate, fmtMoney } from '@/lib/format'
+import { fmtDate, fmtMoney, APP_TIMEZONE } from '@/lib/format'
 import type { Delivery } from '@/lib/types'
 
 type Row = Delivery & {
@@ -21,8 +21,9 @@ type ItemInfo = { docId: string; amount: number }
 const DAY = 86_400_000
 
 function todayStart(): number {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  // midnight today in the business timezone, so "overdue" flips at the right moment
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: APP_TIMEZONE })
+  return new Date(`${todayStr}T00:00:00Z`).getTime()
 }
 
 function buildDocMaps(
@@ -72,7 +73,7 @@ function sideFor(
 function urgency(side: Side): number {
   if (side.kind === 'open') {
     if (!side.due) return 5000
-    return (new Date(`${side.due}T00:00:00`).getTime() - todayStart()) / DAY // negative = overdue
+    return (new Date(`${side.due}T00:00:00Z`).getTime() - todayStart()) / DAY // negative = overdue
   }
   if (side.kind === 'none') return 9998
   return 9999
@@ -100,7 +101,7 @@ function SideCell({
 
   let dueChip = null
   if (side.due) {
-    const daysUntil = Math.round((new Date(`${side.due}T00:00:00`).getTime() - todayStart()) / DAY)
+    const daysUntil = Math.round((new Date(`${side.due}T00:00:00Z`).getTime() - todayStart()) / DAY)
     if (daysUntil < 0) {
       dueChip = (
         <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
