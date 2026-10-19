@@ -12,6 +12,7 @@ import type { Season } from '@/lib/types'
 function exportHref(type: string, filters: ReportFilters): string {
   const params = new URLSearchParams({ type })
   if (filters.season_id) params.set('season_id', filters.season_id)
+  if (filters.source) params.set('source', filters.source)
   if (filters.from) params.set('from', filters.from)
   if (filters.to) params.set('to', filters.to)
   return `/reports/export?${params.toString()}`
@@ -58,6 +59,14 @@ async function Content({ searchParams }: { searchParams: Promise<ReportFilters> 
                 {s.is_active ? ' (active)' : ''}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">
+          Source
+          <select name="source" defaultValue={filters.source ?? ''} className={inputCls}>
+            <option value="">All</option>
+            <option value="supplier">Supplier deliveries</option>
+            <option value="inventory">From inventory</option>
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500">

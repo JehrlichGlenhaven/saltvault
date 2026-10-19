@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { DeleteButton } from '@/components/delete-button'
 import { PageHeader } from '@/components/page'
 import { fmtDateTime, fmtMoney } from '@/lib/format'
-import { MILESTONES, currentStageLabel, milestoneLabel } from '@/lib/milestones'
+import { currentStageLabel, milestoneLabel, milestonesFor } from '@/lib/milestones'
 import { deliveryCost, deliveryMargin, deliveryRevenue, isBagged, isReconciled, marginPct } from '@/lib/money'
 import { createClient } from '@/lib/supabase/server'
 import type {
@@ -35,6 +35,7 @@ type DeliveryRow = Delivery & {
   products: { name: string } | null
   suppliers: { name: string } | null
   seasons: { name: string } | null
+  inventory_locations: { name: string } | null
 }
 
 function eventText(event: DeliveryEvent): string {
@@ -61,7 +62,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   ] = await Promise.all([
     supabase
       .from('deliveries')
-      .select('*, subcontractors(name), sites(name), products(name), suppliers(name), seasons(name)')
+      .select('*, subcontractors(name), sites(name), products(name), suppliers(name), seasons(name), inventory_locations(name)')
       .eq('id', id)
       .single(),
     supabase.from('delivery_events').select('*').eq('delivery_id', id).order('created_at', { ascending: false }),
@@ -110,7 +111,14 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         <h3 className="mb-4 text-sm font-medium text-zinc-900">Summary</h3>
         <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
           <div><dt className="text-zinc-500">Season</dt><dd className="font-medium text-zinc-900">{d.seasons?.name ?? '—'}</dd></div>
-          <div><dt className="text-zinc-500">Supplier</dt><dd className="font-medium text-zinc-900">{d.suppliers?.name ?? '—'}</dd></div>
+          <div>
+            <dt className="text-zinc-500">{d.source === 'inventory' ? 'Source' : 'Supplier'}</dt>
+            <dd className="font-medium text-zinc-900">
+              {d.source === 'inventory'
+                ? `Our inventory — ${d.inventory_locations?.name ?? ''}`
+                : (d.suppliers?.name ?? '—')}
+            </dd>
+          </div>
           <div><dt className="text-zinc-500">Product</dt><dd className="font-medium text-zinc-900">{d.products?.name ?? '—'}</dd></div>
           {!bagged ? (
             <>
@@ -166,7 +174,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-sm font-medium text-zinc-900">Pipeline tracker</h3>
           <ol className="flex flex-col gap-2">
-            {MILESTONES.map((m) => {
+            {milestonesFor(d).map((m) => {
               const value = d[m.key]
               return (
                 <li

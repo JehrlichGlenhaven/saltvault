@@ -7,6 +7,7 @@ export type ReportFilters = {
   season_id?: string
   from?: string
   to?: string
+  source?: string
 }
 
 export type ReportRow = Delivery & {
@@ -26,6 +27,7 @@ export async function fetchReportRows(
     .limit(5000)
 
   if (filters.season_id) query = query.eq('season_id', filters.season_id)
+  if (filters.source) query = query.eq('source', filters.source)
   if (filters.from) query = query.gte('order_placed_at', filters.from)
   if (filters.to) query = query.lte('order_placed_at', `${filters.to}T23:59:59`)
 

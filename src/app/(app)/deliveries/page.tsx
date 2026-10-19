@@ -155,7 +155,14 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
                     </td>
                     <td className={tdCls}>{d.subcontractors?.name ?? '—'}</td>
                     <td className={tdCls}>{d.sites?.name ?? '—'}</td>
-                    <td className={tdCls}>{d.products?.name ?? '—'}</td>
+                    <td className={tdCls}>
+                      {d.products?.name ?? '—'}
+                      {d.source === 'inventory' ? (
+                        <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-800">
+                          inv
+                        </span>
+                      ) : null}
+                    </td>
                     <td className={tdCls}>{isBagged(d) ? '—' : d.loads}</td>
                     <td className={tdCls}>{qtyDisplay(d)}</td>
                     <td className={tdCls}>

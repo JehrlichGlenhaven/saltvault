@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     season_id: sp.get('season_id') || undefined,
     from: sp.get('from') || undefined,
     to: sp.get('to') || undefined,
+    source: sp.get('source') || undefined,
   }
 
   const supabase = await createClient()
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
   } else {
     csv = toCsv([
       [
-        'Ordered', 'Subcontractor', 'Site', 'Product', 'Loads', 'Quantity',
+        'Ordered', 'Subcontractor', 'Site', 'Product', 'Source', 'Loads', 'Quantity',
         'Cost per unit', 'Sell per unit', 'Misc fee', 'Revenue', 'Cost', 'Margin',
         'Margin %', 'Stage',
       ],
@@ -77,6 +78,7 @@ export async function GET(request: NextRequest) {
           d.subcontractors?.name ?? '',
           d.sites?.name ?? '',
           d.products?.name ?? '',
+          d.source,
           isBagged(d) ? '' : d.loads,
           qtyDisplay(d),
           isBagged(d) ? money(d.actual_buy_unit_cost ?? d.buy_unit_cost ?? 0) : money(d.cost_per_ton),

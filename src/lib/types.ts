@@ -64,10 +64,12 @@ export type MarkupRule = {
 export type Delivery = {
   id: string
   season_id: string
-  supplier_id: string
+  supplier_id: string | null
   product_id: string
   subcontractor_id: string
   site_id: string
+  source: 'supplier' | 'inventory'
+  inventory_location_id: string | null
   loads: number
   est_tons_per_load: number
   est_tons: number
@@ -178,5 +180,28 @@ export type DeliveryDocument = {
   size_bytes: number | null
   content_type: string | null
   uploaded_by: string | null
+  created_at: string
+}
+
+export type InventoryLocation = {
+  id: string
+  name: string
+  address: string | null
+  notes: string | null
+}
+
+export type MovementKind = 'purchase' | 'sale' | 'adjustment'
+
+export type InventoryMovement = {
+  id: string
+  location_id: string
+  product_id: string
+  qty_bags: number
+  kind: MovementKind
+  unit_cost: number | null
+  reference: string | null
+  delivery_id: string | null
+  note: string | null
+  created_by: string | null
   created_at: string
 }

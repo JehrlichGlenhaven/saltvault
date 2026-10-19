@@ -7,6 +7,7 @@ import { fmtMoney } from '@/lib/format'
 import { costPerSellUnit } from '@/lib/money'
 import type {
   Delivery,
+  InventoryLocation,
   Product,
   Season,
   Site,
@@ -24,6 +25,9 @@ export function DeliveryForm({
   subcontractors,
   sites,
   defaultSeasonId,
+  locations = [],
+  onHand = {},
+  lastCosts = {},
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>
   initial?: Delivery
@@ -33,8 +37,14 @@ export function DeliveryForm({
   subcontractors: Subcontractor[]
   sites: Site[]
   defaultSeasonId?: string
+  locations?: InventoryLocation[]
+  onHand?: Record<string, number>
+  lastCosts?: Record<string, number>
 }) {
   const [state, formAction] = useActionState(action, initialFormState)
+
+  const [source, setSource] = useState<'supplier' | 'inventory'>(initial?.source ?? 'supplier')
+  const [locationId, setLocationId] = useState(initial?.inventory_location_id ?? '')
 
   const [subId, setSubId] = useState(initial?.subcontractor_id ?? '')
   const [siteId, setSiteId] = useState(initial?.site_id ?? '')
@@ -60,7 +70,11 @@ export function DeliveryForm({
   const [quoteNote, setQuoteNote] = useState<string | null>(null)
 
   const selectedProduct = products.find((p) => p.id === productId)
-  const bagged = selectedProduct?.unit === 'bag'
+  const inventory = source === 'inventory'
+  const bagged = inventory || selectedProduct?.unit === 'bag'
+  const visibleProducts = inventory ? products.filter((p) => p.unit === 'bag') : products
+  const stockKey = `${locationId}:${productId}`
+  const bagsOnHand = locationId && productId ? (onHand[stockKey] ?? 0) : null
 
   // Sites belong to a sub — filter the options when a sub is chosen.
   const visibleSites = subId ? sites.filter((s) => s.subcontractor_id === subId) : sites
@@ -117,6 +131,31 @@ export function DeliveryForm({
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-4">
       <input type="hidden" name="qty_mode" value={bagged ? 'bags' : 'tons'} />
+      <input type="hidden" name="source" value={source} />
+
+      <div className="flex gap-2">
+        {(['supplier', 'inventory'] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => {
+              setSource(s)
+              if (s === 'inventory') {
+                setSupplierId('')
+                const current = products.find((p) => p.id === productId)
+                if (current && current.unit !== 'bag') setProductId('')
+              }
+            }}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              source === s
+                ? 'bg-zinc-900 text-white'
+                : 'border border-zinc-300 text-zinc-600 hover:bg-zinc-50'
+            }`}
+          >
+            {s === 'supplier' ? 'Supplier delivery' : 'From our inventory'}
+          </button>
+        ))}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Season">
@@ -132,36 +171,82 @@ export function DeliveryForm({
             ))}
           </select>
         </Field>
-        <Field label="Supplier">
-          <select
-            name="supplier_id"
-            required
-            value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
-            className={inputCls}
+        {inventory ? (
+          <Field
+            label="Inventory location"
+            hint={
+              bagsOnHand !== null
+                ? `${bagsOnHand} bags on hand${lastCosts[stockKey] !== undefined ? ` · last cost $${lastCosts[stockKey].toFixed(2)}/bag` : ''}`
+                : 'Which stock to draw from'
+            }
           >
-            <option value="" disabled>
-              Select a supplier…
-            </option>
-            {suppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id}>
-                {supplier.name}
+            <select
+              name="inventory_location_id"
+              required
+              value={locationId}
+              onChange={(e) => {
+                const loc = e.target.value
+                setLocationId(loc)
+                const last = lastCosts[`${loc}:${productId}`]
+                if (last !== undefined && buyUnitCost === '') {
+                  setBuyUnit('bag')
+                  setBuyUnitCost(last.toFixed(2))
+                }
+              }}
+              className={inputCls}
+            >
+              <option value="" disabled>
+                Select a location…
               </option>
-            ))}
-          </select>
-        </Field>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field label="Supplier">
+            <select
+              name="supplier_id"
+              required
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value)}
+              className={inputCls}
+            >
+              <option value="" disabled>
+                Select a supplier…
+              </option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="Product">
           <select
             name="product_id"
             required
             value={productId}
-            onChange={(e) => setProductId(e.target.value)}
+            onChange={(e) => {
+              const prod = e.target.value
+              setProductId(prod)
+              if (inventory) {
+                const last = lastCosts[`${locationId}:${prod}`]
+                if (last !== undefined && buyUnitCost === '') {
+                  setBuyUnit('bag')
+                  setBuyUnitCost(last.toFixed(2))
+                }
+              }
+            }}
             className={inputCls}
           >
             <option value="" disabled>
               Select a product…
             </option>
-            {products.map((product) => (
+            {visibleProducts.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.name}
                 {product.unit === 'bag' ? ' (bagged)' : ''}

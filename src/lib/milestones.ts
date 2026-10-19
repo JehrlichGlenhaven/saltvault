@@ -20,10 +20,21 @@ export function milestoneLabel(key: MilestoneKey): string {
   return MILESTONES.find((m) => m.key === key)?.label ?? key
 }
 
+/** Milestones applicable to a delivery's source — inventory sales have no supplier side. */
+export function milestonesFor(delivery: Delivery) {
+  if (delivery.source === 'inventory') {
+    return MILESTONES.filter((m) =>
+      ['order_placed_at', 'sub_confirmed_at', 'delivered_at', 'sub_invoiced_at', 'sub_paid_at'].includes(m.key)
+    )
+  }
+  return MILESTONES
+}
+
 /** The furthest-completed milestone, or null if none are set. */
 export function currentStage(delivery: Delivery): MilestoneKey | null {
-  for (let i = MILESTONES.length - 1; i >= 0; i--) {
-    if (delivery[MILESTONES[i].key]) return MILESTONES[i].key
+  const milestones = milestonesFor(delivery)
+  for (let i = milestones.length - 1; i >= 0; i--) {
+    if (delivery[milestones[i].key]) return milestones[i].key
   }
   return null
 }
