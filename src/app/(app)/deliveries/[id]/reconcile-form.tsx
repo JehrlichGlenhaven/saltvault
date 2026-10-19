@@ -7,9 +7,11 @@ import { initialFormState, type FormState } from '@/lib/forms'
 export function ReconcileForm({
   action,
   estTons,
+  costPerTon,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>
   estTons: number
+  costPerTon: number
 }) {
   const [state, formAction] = useActionState(action, initialFormState)
 
@@ -26,6 +28,20 @@ export function ReconcileForm({
           min="0.01"
           required
           defaultValue={estTons.toFixed(2)}
+          className={inputCls}
+        />
+      </Field>
+      <Field
+        label="Actual cost per ton ($)"
+        hint="Prefilled with the quoted cost — adjust if the supplier invoice differs"
+      >
+        <input
+          name="actual_cost_per_ton"
+          type="number"
+          step="0.01"
+          min="0"
+          required
+          defaultValue={Number(costPerTon).toFixed(2)}
           className={inputCls}
         />
       </Field>

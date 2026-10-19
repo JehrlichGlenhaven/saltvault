@@ -236,13 +236,17 @@ export async function reconcileDelivery(
   if (actualTons === null || actualTons <= 0) {
     return { error: 'Enter the actual tonnage from the supplier invoice.' }
   }
+  const actualCostPerTon = numOrNull(fd, 'actual_cost_per_ton')
+  if (actualCostPerTon === null || actualCostPerTon < 0) {
+    return { error: 'Enter the actual cost per ton from the supplier invoice.' }
+  }
   const supplierTicket = strOrNull(fd, 'supplier_ticket')
   const note = strOrNull(fd, 'note')
 
   const supabase = await createClient()
   const { data: existing } = await supabase
     .from('deliveries')
-    .select('reconciled_at')
+    .select('reconciled_at, cost_per_ton')
     .eq('id', id)
     .single()
   if (existing?.reconciled_at) {
@@ -254,6 +258,7 @@ export async function reconcileDelivery(
     .from('deliveries')
     .update({
       actual_tons: actualTons,
+      cost_per_ton: actualCostPerTon,
       ...(supplierTicket ? { supplier_ticket: supplierTicket } : {}),
       reconciled_at: now,
       updated_at: now,
@@ -261,9 +266,12 @@ export async function reconcileDelivery(
     .eq('id', id)
   if (error) return { error: error.message }
 
+  const costChanged = Number(existing?.cost_per_ton) !== actualCostPerTon
   await logEvent(supabase, id, 'reconciled', {
     toStage: 'reconciled_at',
-    note: `Actual tons: ${actualTons}${note ? ` — ${note}` : ''}`,
+    note: `Actual tons: ${actualTons} · cost $${actualCostPerTon.toFixed(2)}/t${
+      costChanged ? ` (was $${Number(existing?.cost_per_ton).toFixed(2)}/t)` : ''
+    }${note ? ` — ${note}` : ''}`,
   })
 
   revalidatePath('/deliveries')

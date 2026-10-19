@@ -25,6 +25,7 @@ export function NewBillForm({
   const [supplierId, setSupplierId] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [tons, setTons] = useState<Record<string, string>>({})
+  const [costs, setCosts] = useState<Record<string, string>>({})
   const today = new Date().toISOString().slice(0, 10)
 
   const visible = useMemo(
@@ -38,9 +39,14 @@ export function NewBillForm({
     return value !== undefined && value !== '' ? Number(value) : Number(d.est_tons)
   }
 
+  const costFor = (d: BillCandidate): number => {
+    const value = costs[d.id]
+    return value !== undefined && value !== '' ? Number(value) : Number(d.cost_per_ton)
+  }
+
   const total = visible
     .filter((d) => selected.has(d.id))
-    .reduce((sum, d) => sum + tonsFor(d) * Number(d.cost_per_ton) + Number(d.misc_fee), 0)
+    .reduce((sum, d) => sum + tonsFor(d) * costFor(d) + Number(d.misc_fee), 0)
 
   const toggle = (d: BillCandidate) => {
     setSelected((prev) => {
@@ -51,6 +57,9 @@ export function NewBillForm({
         next.add(d.id)
         if (d.actual_tons === null && tons[d.id] === undefined) {
           setTons((prevTons) => ({ ...prevTons, [d.id]: Number(d.est_tons).toFixed(2) }))
+        }
+        if (costs[d.id] === undefined) {
+          setCosts((prevCosts) => ({ ...prevCosts, [d.id]: Number(d.cost_per_ton).toFixed(2) }))
         }
       }
       return next
@@ -114,6 +123,7 @@ export function NewBillForm({
                 <th className="px-4 py-2">Sub / Site</th>
                 <th className="px-4 py-2">Product</th>
                 <th className="px-4 py-2">Actual tons</th>
+                <th className="px-4 py-2">Cost $/t</th>
                 <th className="px-4 py-2">Amount</th>
               </tr>
             </thead>
@@ -154,6 +164,24 @@ export function NewBillForm({
                         />
                       ) : (
                         <span className="text-zinc-400">est {Number(d.est_tons).toFixed(1)} t</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-zinc-700">
+                      {d.actual_tons !== null ? (
+                        <span>${Number(d.cost_per_ton).toFixed(2)}/t</span>
+                      ) : isChecked ? (
+                        <input
+                          name={`cost_${d.id}`}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          required
+                          value={costs[d.id] ?? ''}
+                          onChange={(e) => setCosts((prev) => ({ ...prev, [d.id]: e.target.value }))}
+                          className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-500"
+                        />
+                      ) : (
+                        <span className="text-zinc-400">${Number(d.cost_per_ton).toFixed(2)}/t</span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-sm font-medium text-zinc-900">{fmtMoney(amount)}</td>

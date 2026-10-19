@@ -43,17 +43,24 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
     return { error: 'One or more deliveries are already on a supplier bill.' }
   }
 
-  // Validate actual tons for unreconciled deliveries before writing anything.
+  // Validate actual tons (and cost) for unreconciled deliveries before writing anything.
   const tonsByDelivery = new Map<string, number>()
+  const costByDelivery = new Map<string, number>()
   for (const d of rows) {
     if (d.actual_tons !== null) {
       tonsByDelivery.set(d.id, Number(d.actual_tons))
+      costByDelivery.set(d.id, Number(d.cost_per_ton))
     } else {
       const tons = numOrNull(fd, `tons_${d.id}`)
       if (tons === null || tons <= 0) {
         return { error: 'Enter the actual tons for every unreconciled delivery.' }
       }
       tonsByDelivery.set(d.id, tons)
+      const cost = numOrNull(fd, `cost_${d.id}`)
+      if (cost === null || cost < 0) {
+        return { error: 'Enter the actual cost per ton for every unreconciled delivery.' }
+      }
+      costByDelivery.set(d.id, cost)
     }
   }
 
@@ -81,7 +88,8 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
   const now = new Date().toISOString()
   for (const d of rows) {
     const tons = tonsByDelivery.get(d.id)!
-    const amount = Math.round((tons * Number(d.cost_per_ton) + Number(d.misc_fee)) * 100) / 100
+    const cost = costByDelivery.get(d.id)!
+    const amount = Math.round((tons * cost + Number(d.misc_fee)) * 100) / 100
 
     await supabase.from('supplier_bill_items').insert({
       supplier_bill_id: bill.id,
@@ -93,11 +101,11 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
     if (d.actual_tons === null) {
       await supabase
         .from('deliveries')
-        .update({ actual_tons: tons, reconciled_at: now, updated_at: now })
+        .update({ actual_tons: tons, cost_per_ton: cost, reconciled_at: now, updated_at: now })
         .eq('id', d.id)
       await logDeliveryEvent(supabase, d.id, 'reconciled', {
         toStage: 'reconciled_at',
-        note: `Actual tons: ${tons} (via supplier bill ${billNumber})`,
+        note: `Actual tons: ${tons} · cost $${cost.toFixed(2)}/t (via supplier bill ${billNumber})`,
       })
     }
     await supabase

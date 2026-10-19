@@ -179,7 +179,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           {!reconciled ? (
             <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-sm font-medium text-zinc-900">Reconcile (supplier invoice received)</h3>
-              <ReconcileForm action={reconcileDelivery.bind(null, d.id)} estTons={deliveryTons(d)} />
+              <ReconcileForm action={reconcileDelivery.bind(null, d.id)} estTons={deliveryTons(d)} costPerTon={d.cost_per_ton} />
             </section>
           ) : null}
 
