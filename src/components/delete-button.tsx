@@ -6,7 +6,7 @@ export function DeleteButton({
   action,
   label = 'Delete',
 }: {
-  action: () => Promise<void>
+  action: () => Promise<unknown>
   label?: string
 }) {
   const [pending, setPending] = useState(false)

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isUniqueViolation, numOrNull, str, strOrNull, type FormState } from '@/lib/forms'
+import { syncInvoiceAmountForDelivery } from '@/lib/auto-invoice'
 import { logDeliveryEvent } from '@/lib/log'
 import { costPerSellUnit, deliveryCost, isBagged, isReconciled } from '@/lib/money'
 import { refreshSupplierBillStatus } from '@/lib/refresh'
@@ -128,6 +129,7 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
         note: `Actual buy: ${recon.qty} ${d.buy_unit}(s) @ $${recon.cost.toFixed(2)} (via supplier bill ${billNumber})`,
       })
       amount = Math.round((recon.qty * recon.cost + fee) * 100) / 100
+      await syncInvoiceAmountForDelivery(supabase, d.id, Number(d.sell_qty) * sellPrice)
     } else {
       await supabase
         .from('deliveries')
@@ -138,6 +140,7 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
         note: `Actual tons: ${recon.qty} · cost $${recon.cost.toFixed(2)}/t (via supplier bill ${billNumber})`,
       })
       amount = Math.round((recon.qty * recon.cost + fee) * 100) / 100
+      await syncInvoiceAmountForDelivery(supabase, d.id, recon.qty * (recon.cost + Number(d.markup_per_ton)))
     }
 
     await supabase.from('supplier_bill_items').insert({
@@ -159,6 +162,7 @@ export async function createSupplierBill(_prev: FormState, fd: FormData): Promis
 
   revalidatePath('/bills')
   revalidatePath('/deliveries')
+  revalidatePath('/invoices')
   redirect(`/bills/${bill.id}`)
 }
 

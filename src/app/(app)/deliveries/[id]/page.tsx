@@ -2,9 +2,10 @@ import { Suspense } from 'react'
 import DOMPurify from 'isomorphic-dompurify'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { StatusBadge } from '@/app/(app)/invoices/page'
 import { DeleteButton } from '@/components/delete-button'
 import { PageHeader } from '@/components/page'
-import { fmtDateTime, fmtMoney } from '@/lib/format'
+import { fmtDate, fmtDateTime, fmtMoney } from '@/lib/format'
 import { currentStageLabel, milestoneLabel, milestonesFor } from '@/lib/milestones'
 import { deliveryCost, deliveryMargin, deliveryRevenue, isBagged, isReconciled, marginPct } from '@/lib/money'
 import { createClient } from '@/lib/supabase/server'
@@ -63,6 +64,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     { data: sites },
     { data: documents },
     { data: lastEmailLog },
+    { data: linkedInvoiceItem },
   ] = await Promise.all([
     supabase
       .from('deliveries')
@@ -87,6 +89,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('sub_invoice_items')
+      .select('id, amount, sub_invoices(id, invoice_number, status, due_date)')
+      .eq('delivery_id', id)
+      .maybeSingle(),
   ])
   if (!delivery) notFound()
 
@@ -102,6 +109,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
 
   const d = delivery as unknown as DeliveryRow
   const lastEmail = (lastEmailLog ?? null) as EmailLog | null
+  const linkedInvoice = (linkedInvoiceItem ?? null) as {
+    id: string
+    amount: number
+    sub_invoices: { id: string; invoice_number: string; status: string; due_date: string | null } | null
+  } | null
   const bagged = isBagged(d)
   const reconciled = isReconciled(d)
   const pct = marginPct(d)
@@ -285,6 +297,32 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
               </ul>
             )}
             <DocumentUpload action={uploadDeliveryDocument.bind(null, d.id)} />
+          </section>
+
+          <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-medium text-zinc-900">Invoice</h3>
+            {linkedInvoice?.sub_invoices ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <Link
+                    href={`/invoices/${linkedInvoice.sub_invoices.id}`}
+                    className="font-medium text-zinc-900 hover:underline"
+                  >
+                    {linkedInvoice.sub_invoices.invoice_number}
+                  </Link>
+                  <span className="text-xs text-zinc-500">
+                    {fmtMoney(linkedInvoice.amount)}
+                    {reconciled ? '' : ' (est — updates at reconcile)'}
+                    {linkedInvoice.sub_invoices.due_date
+                      ? ` · due ${fmtDate(linkedInvoice.sub_invoices.due_date)}`
+                      : ''}
+                  </span>
+                </div>
+                <StatusBadge status={linkedInvoice.sub_invoices.status} />
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-400">No invoice linked.</p>
+            )}
           </section>
 
           <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">

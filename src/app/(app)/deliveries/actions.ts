@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { numOrNull, str, strOrNull, type FormState } from '@/lib/forms'
 import { MILESTONE_KEYS, currentStage, milestoneLabel, type MilestoneKey } from '@/lib/milestones'
+import { createAutoInvoiceForDelivery, syncInvoiceAmountForDelivery } from '@/lib/auto-invoice'
 import { costPerSellUnit } from '@/lib/money'
 import type { Delivery } from '@/lib/types'
 
@@ -270,8 +271,24 @@ async function createInventoryDelivery(
     note: 'Sold from inventory',
   })
 
+  // auto-invoice (inventory sale amounts are final at creation)
+  const invAmount =
+    parsed.qty_mode === 'bags'
+      ? parsed.sell_qty! * parsed.sell_unit_price!
+      : parsed.loads! * parsed.est_tons_per_load! * (parsed.cost_per_ton! + parsed.markup_per_ton!)
+  const invResult = await createAutoInvoiceForDelivery(
+    supabase,
+    { id: data.id, subcontractor_id: parsed.subcontractor_id, season_id: parsed.season_id },
+    invAmount,
+    userId
+  )
+  if (invResult.error) {
+    return { error: `Delivery was created — but the auto-invoice failed: ${invResult.error}. Create it manually from Invoices.` }
+  }
+
   revalidatePath('/deliveries')
   revalidatePath('/inventory')
+  revalidatePath('/invoices')
   redirect(`/deliveries/${data.id}`)
 }
 
@@ -303,7 +320,23 @@ export async function createDelivery(_prev: FormState, fd: FormData): Promise<Fo
 
   await logEvent(supabase, data.id, 'created', { toStage: 'order_placed_at' })
 
+  // auto-invoice at the order-time estimate (corrected to actuals at reconcile)
+  const estAmount =
+    parsed.qty_mode === 'bags'
+      ? parsed.sell_qty! * parsed.sell_unit_price!
+      : parsed.loads! * parsed.est_tons_per_load! * (parsed.cost_per_ton! + parsed.markup_per_ton!)
+  const invoiceResult = await createAutoInvoiceForDelivery(
+    supabase,
+    { id: data.id, subcontractor_id: parsed.subcontractor_id, season_id: parsed.season_id },
+    estAmount,
+    user?.id ?? null
+  )
+  if (invoiceResult.error) {
+    return { error: `Delivery was created — but the auto-invoice failed: ${invoiceResult.error}. Create it manually from Invoices.` }
+  }
+
   revalidatePath('/deliveries')
+  revalidatePath('/invoices')
   redirect(`/deliveries/${data.id}`)
 }
 
@@ -340,8 +373,26 @@ export async function updateDelivery(
   redirect(`/deliveries/${id}`)
 }
 
-export async function deleteDelivery(id: string): Promise<void> {
+export async function deleteDelivery(id: string): Promise<FormState> {
   const supabase = await createClient()
+
+  // auto-invoice cleanup: remove the linked invoice, unless it has payments
+  const { data: linkedItem } = await supabase
+    .from('sub_invoice_items')
+    .select('sub_invoice_id')
+    .eq('delivery_id', id)
+    .maybeSingle()
+  if (linkedItem) {
+    const { data: payments } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('sub_invoice_id', linkedItem.sub_invoice_id)
+      .limit(1)
+    if ((payments ?? []).length > 0) {
+      return { error: 'This delivery’s invoice has payments recorded — it can’t be deleted.' }
+    }
+    await supabase.from('sub_invoices').delete().eq('id', linkedItem.sub_invoice_id)
+  }
 
   // deleting an inventory sale returns the stock
   const { data: existing } = await supabase
@@ -374,6 +425,7 @@ export async function deleteDelivery(id: string): Promise<void> {
   await supabase.from('deliveries').delete().eq('id', id)
   revalidatePath('/deliveries')
   revalidatePath('/inventory')
+  revalidatePath('/invoices')
   redirect('/deliveries')
 }
 
@@ -471,7 +523,10 @@ export async function reconcileDelivery(
       note: `Actual: sold ${actualSellQty} ${existing.sell_unit}(s) · bought ${actualBuyQty} ${existing.buy_unit}(s) @ $${actualBuyCost.toFixed(2)} · markup $${markup.toFixed(2)}/unit${note ? ` — ${note}` : ''}`,
     })
 
+    await syncInvoiceAmountForDelivery(supabase, id, actualSellQty * sellUnitPrice)
+
     revalidatePath('/deliveries')
+    revalidatePath('/invoices')
     revalidatePath(`/deliveries/${id}`)
     redirect(`/deliveries/${id}`)
   }
@@ -513,7 +568,10 @@ export async function reconcileDelivery(
     }${note ? ` — ${note}` : ''}`,
   })
 
+  await syncInvoiceAmountForDelivery(supabase, id, actualTons * (actualCostPerTon + markupPerTon))
+
   revalidatePath('/deliveries')
+  revalidatePath('/invoices')
   revalidatePath(`/deliveries/${id}`)
   redirect(`/deliveries/${id}`)
 }
