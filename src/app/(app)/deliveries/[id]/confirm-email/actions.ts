@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { isEmailConfigured, sendEmail } from '@/lib/email'
+import { isEmailConfigured, plainTextToHtml, sendEmail } from '@/lib/email'
 import { str, type FormState } from '@/lib/forms'
 import { logDeliveryEvent } from '@/lib/log'
 import { createClient } from '@/lib/supabase/server'
@@ -32,7 +32,7 @@ export async function sendConfirmationEmail(
     .single()
   if (!delivery) return { error: 'Delivery not found.' }
 
-  const result = await sendEmail({ to, subject, text: body })
+  const result = await sendEmail({ to, subject, text: body, html: plainTextToHtml(body) })
   if (result.error) return { error: result.error }
 
   const {

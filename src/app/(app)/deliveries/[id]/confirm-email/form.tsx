@@ -25,7 +25,7 @@ export function ConfirmEmailForm({
       <Field label="Subject">
         <input name="subject" required defaultValue={defaultSubject} className={inputCls} />
       </Field>
-      <Field label="Body" hint="Review and edit freely — this exact text is what the sub receives.">
+      <Field label="Body" hint="Review and edit freely — the sub receives this text in Times New Roman, 12 pt.">
         <textarea name="body" required rows={14} defaultValue={defaultBody} className={`${inputCls} font-mono text-xs`} />
       </Field>
       <FormError error={state.error} />
