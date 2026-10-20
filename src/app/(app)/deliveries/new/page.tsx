@@ -38,24 +38,26 @@ async function NewDelivery() {
 
   return (
     <main>
-      <PageHeader title="New delivery" />
-      <p className="mb-6 text-sm text-zinc-500">
-        Placing the order stamps the first milestone (order placed). Cost and markup
-        auto-fill from the price tables for supplier deliveries once you pick supplier,
-        product, and sub — or flip to “From our inventory” to sell stock you hold.
-      </p>
-      <DeliveryForm
-        action={createDelivery}
-        seasons={typedSeasons}
-        suppliers={(suppliers ?? []) as Supplier[]}
-        products={(products ?? []) as Product[]}
-        subcontractors={(subs ?? []) as Subcontractor[]}
-        sites={(sites ?? []) as Site[]}
-        defaultSeasonId={activeSeason?.id}
-        locations={(locations ?? []) as InventoryLocation[]}
-        onHand={onHand}
-        lastCosts={lastCosts}
-      />
+      <div className="mx-auto max-w-2xl">
+        <PageHeader title="New delivery" />
+        <p className="mb-6 text-sm text-zinc-500">
+          Placing the order stamps the first milestone (order placed). Cost and markup
+          auto-fill from the price tables for supplier deliveries once you pick supplier,
+          product, and sub — or flip to “From our inventory” to sell stock you hold.
+        </p>
+        <DeliveryForm
+          action={createDelivery}
+          seasons={typedSeasons}
+          suppliers={(suppliers ?? []) as Supplier[]}
+          products={(products ?? []) as Product[]}
+          subcontractors={(subs ?? []) as Subcontractor[]}
+          sites={(sites ?? []) as Site[]}
+          defaultSeasonId={activeSeason?.id}
+          locations={(locations ?? []) as InventoryLocation[]}
+          onHand={onHand}
+          lastCosts={lastCosts}
+        />
+      </div>
     </main>
   )
 }

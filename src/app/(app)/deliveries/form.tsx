@@ -53,7 +53,7 @@ export function DeliveryForm({
 
   // tons mode
   const [loads, setLoads] = useState(String(initial?.loads ?? 1))
-  const [tonsPerLoad, setTonsPerLoad] = useState(String(initial?.est_tons_per_load ?? 24))
+  const [tonsPerLoad, setTonsPerLoad] = useState(String(initial?.est_tons_per_load ?? 22))
   const [costPerTon, setCostPerTon] = useState(initial ? String(initial.cost_per_ton) : '')
   const [markupPerTon, setMarkupPerTon] = useState(initial ? String(initial.markup_per_ton) : '')
 
@@ -271,7 +271,8 @@ export function DeliveryForm({
             </option>
             {subcontractors.map((sub) => (
               <option key={sub.id} value={sub.id}>
-                {sub.name}
+                {sub.company ?? sub.name}
+                {sub.company ? ` (${sub.name})` : ''}
               </option>
             ))}
           </select>

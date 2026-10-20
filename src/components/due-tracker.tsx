@@ -197,9 +197,9 @@ export async function DueTracker({ seasonId }: { seasonId?: string }) {
           {openCount} with money still moving · sorted most urgent first
         </span>
       </div>
-      <div className={tableWrapCls}>
+      <div className={`${tableWrapCls} max-h-[30rem] overflow-y-auto`}>
         <table className={tableCls}>
-          <thead className={theadCls}>
+          <thead className={`${theadCls} sticky top-0 z-10`}>
             <tr>
               <th className={thCls}>Ordered</th>
               <th className={thCls}>Sub</th>

@@ -94,7 +94,7 @@ function parseDelivery(fd: FormData) {
       qty_mode: 'bags' as const,
       // ton columns unused in bag mode (sell_per_ton is generated from these)
       loads: 1,
-      est_tons_per_load: 24,
+      est_tons_per_load: 22,
       cost_per_ton: 0,
       markup_per_ton: 0,
       buy_unit: str(fd, 'buy_unit'),
