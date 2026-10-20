@@ -198,6 +198,7 @@ export type EmailLog = {
   to_email: string
   subject: string
   body: string
+  body_html: string | null
   provider_message_id: string | null
   sent_by: string | null
   created_at: string

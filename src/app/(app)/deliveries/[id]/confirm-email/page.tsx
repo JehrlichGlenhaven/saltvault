@@ -22,7 +22,7 @@ async function Compose({ params }: { params: Promise<{ id: string }> }) {
   if (!delivery) notFound()
 
   const d = delivery as unknown as ConfirmableDelivery
-  const { subject, body } = buildConfirmationEmail(d)
+  const { subject, body, bodyHtml } = buildConfirmationEmail(d)
   const subEmail = d.subcontractors?.email ?? ''
   const emailReady = isEmailConfigured()
 
@@ -67,6 +67,7 @@ async function Compose({ params }: { params: Promise<{ id: string }> }) {
         defaultTo={subEmail}
         defaultSubject={subject}
         defaultBody={body}
+        defaultBodyHtml={bodyHtml}
       />
     </main>
   )

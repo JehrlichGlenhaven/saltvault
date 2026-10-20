@@ -12,6 +12,8 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+export { escapeHtml }
+
 /** House style for outgoing email text. */
 const BODY_FONT = "font-family:'Times New Roman',serif;font-size:12pt;"
 

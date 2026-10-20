@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import DOMPurify from 'isomorphic-dompurify'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DeleteButton } from '@/components/delete-button'
@@ -300,9 +301,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                   </summary>
                   <div className="mt-2 rounded-md bg-zinc-50 p-3">
                     <p className="text-xs font-medium text-zinc-700">{lastEmail.subject}</p>
-                    <pre className="mt-2 whitespace-pre-wrap font-mono text-xs text-zinc-600">
-                      {lastEmail.body}
-                    </pre>
+                    {lastEmail.body_html ? (
+                      <div
+                        className="mt-2 text-sm text-zinc-700 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-blue-700 [&_a]:underline"
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lastEmail.body_html) }}
+                      />
+                    ) : (
+                      <pre className="mt-2 whitespace-pre-wrap font-mono text-xs text-zinc-600">
+                        {lastEmail.body}
+                      </pre>
+                    )}
                   </div>
                 </details>
                 <div>
