@@ -22,14 +22,14 @@ function DueChip({ due }: { due: string | null }) {
   const daysUntil = daysUntilDue(due)
   if (daysUntil < 0) {
     return (
-      <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+      <span className="inline-block w-fit rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
         {-daysUntil}d overdue
       </span>
     )
   }
   return (
     <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+      className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
         daysUntil <= 7 ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100 text-zinc-600'
       }`}
     >
@@ -190,7 +190,7 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
               <EmptyRow colSpan={7}>No deliveries in this view.</EmptyRow>
             ) : (
               rows.map(({ delivery: d, subSide, supplierSide }) => (
-                <tr key={d.id} className="hover:bg-zinc-50">
+                <tr key={d.id} className="odd:bg-white even:bg-zinc-50 hover:bg-zinc-100">
                   <td className={tdCls}>
                     <Link href={`/deliveries/${d.id}`} className="font-medium text-zinc-900 hover:underline">
                       {fmtDate(d.order_placed_at)}

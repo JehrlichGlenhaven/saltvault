@@ -38,13 +38,13 @@ function SideCell({
     const daysUntil = daysUntilDue(side.due)
     if (daysUntil < 0) {
       dueChip = (
-        <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+        <span className="inline-block w-fit rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
           {-daysUntil}d overdue
         </span>
       )
     } else {
       dueChip = (
-        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${daysUntil <= 7 ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100 text-zinc-600'}`}>
+        <span className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium ${daysUntil <= 7 ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100 text-zinc-600'}`}>
           Due {fmtDate(side.due)}
         </span>
       )
