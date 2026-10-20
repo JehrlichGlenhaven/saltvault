@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DeleteButton } from '@/components/delete-button'
 import { PageHeader } from '@/components/page'
@@ -10,6 +11,7 @@ import type {
   Delivery,
   DeliveryDocument,
   DeliveryEvent,
+  EmailLog,
   Product,
   Season,
   Site,
@@ -59,6 +61,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     { data: subs },
     { data: sites },
     { data: documents },
+    { data: lastEmailLog },
   ] = await Promise.all([
     supabase
       .from('deliveries')
@@ -76,6 +79,13 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
       .select('*')
       .eq('delivery_id', id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('email_logs')
+      .select('*')
+      .eq('delivery_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
   if (!delivery) notFound()
 
@@ -90,6 +100,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   )
 
   const d = delivery as unknown as DeliveryRow
+  const lastEmail = (lastEmailLog ?? null) as EmailLog | null
   const bagged = isBagged(d)
   const reconciled = isReconciled(d)
   const pct = marginPct(d)
@@ -273,6 +284,52 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
               </ul>
             )}
             <DocumentUpload action={uploadDeliveryDocument.bind(null, d.id)} />
+          </section>
+
+          <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-medium text-zinc-900">Email confirmation</h3>
+            {lastEmail ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-zinc-600">
+                  Sent to <span className="font-medium text-zinc-900">{lastEmail.to_email}</span> on{' '}
+                  {fmtDateTime(lastEmail.created_at)}
+                </p>
+                <details>
+                  <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-700">
+                    View sent email
+                  </summary>
+                  <div className="mt-2 rounded-md bg-zinc-50 p-3">
+                    <p className="text-xs font-medium text-zinc-700">{lastEmail.subject}</p>
+                    <pre className="mt-2 whitespace-pre-wrap font-mono text-xs text-zinc-600">
+                      {lastEmail.body}
+                    </pre>
+                  </div>
+                </details>
+                <div>
+                  <Link
+                    href={`/deliveries/${d.id}/confirm-email`}
+                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    Send another
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-zinc-400">
+                  No confirmation email sent yet — review the pre-filled template and send it when
+                  you&apos;re ready.
+                </p>
+                <div>
+                  <Link
+                    href={`/deliveries/${d.id}/confirm-email`}
+                    className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+                  >
+                    Compose confirmation email
+                  </Link>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </div>

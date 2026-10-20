@@ -192,6 +192,16 @@ export type InventoryLocation = {
 
 export type MovementKind = 'purchase' | 'sale' | 'adjustment'
 
+export type EmailLog = {
+  id: string
+  delivery_id: string
+  to_email: string
+  subject: string
+  body: string
+  provider_message_id: string | null
+  sent_by: string | null
+  created_at: string
+}
 export type InventoryMovement = {
   id: string
   location_id: string
