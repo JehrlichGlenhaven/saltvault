@@ -4,7 +4,7 @@ import { EmptyRow, tableCls, tableWrapCls, tdCls, thCls, theadCls } from '@/comp
 import { fmtDate, fmtMoney } from '@/lib/format'
 import { daysOutstanding } from '@/lib/status'
 import type { SubInvoice, SupplierBill } from '@/lib/types'
-import { StatusBadge } from '@/app/(app)/invoices/page'
+import { StatusBadge } from '@/components/status-badge'
 
 type InvoiceRow = SubInvoice & { subcontractors: { name: string } | null }
 type BillRow = SupplierBill & { suppliers: { name: string } | null }

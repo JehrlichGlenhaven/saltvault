@@ -8,7 +8,7 @@ import { fmtDate, fmtMoney } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import type { Payment, SupplierBill, SupplierBillItem } from '@/lib/types'
 import { deleteSupplierBill, recordBillPayment } from '../actions'
-import { StatusBadge } from '../../invoices/page'
+import { StatusBadge } from '@/components/status-badge'
 
 type ItemRow = SupplierBillItem & {
   deliveries: {

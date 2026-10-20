@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { EmptyRow, tableCls, tableWrapCls, tdCls, thCls, theadCls } from '@/components/page'
-import { fmtDate, fmtMoney, APP_TIMEZONE } from '@/lib/format'
+import { fmtDate, fmtMoney } from '@/lib/format'
 import { qtyDisplay } from '@/lib/money'
 import type { Delivery } from '@/lib/types'
+import { buildDocMaps, daysUntilDue, sideFor, urgency, type Side } from '@/lib/doc-balances'
 
 type Row = Delivery & {
   subcontractors: { name: string } | null
@@ -11,74 +12,6 @@ type Row = Delivery & {
   products: { name: string } | null
 }
 
-type Side =
-  | { kind: 'paid' }
-  | { kind: 'none' }
-  | { kind: 'open'; docId: string; number: string; due: string | null; amount: number }
-
-type DocInfo = { number: string; due: string | null; total: number; balance: number }
-type ItemInfo = { docId: string; amount: number }
-
-const DAY = 86_400_000
-
-function todayStart(): number {
-  // midnight today in the business timezone, so "overdue" flips at the right moment
-  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: APP_TIMEZONE })
-  return new Date(`${todayStr}T00:00:00Z`).getTime()
-}
-
-function buildDocMaps(
-  docs: { id: string; number: string; due_date: string | null }[],
-  items: { doc_id: string; delivery_id: string; amount: number | string }[],
-  payments: { doc_id: string; amount: number | string }[]
-): { docById: Map<string, DocInfo>; itemByDelivery: Map<string, ItemInfo> } {
-  const totalById = new Map<string, number>()
-  const itemByDelivery = new Map<string, ItemInfo>()
-  for (const item of items) {
-    totalById.set(item.doc_id, (totalById.get(item.doc_id) ?? 0) + Number(item.amount))
-    itemByDelivery.set(item.delivery_id, { docId: item.doc_id, amount: Number(item.amount) })
-  }
-  const paidById = new Map<string, number>()
-  for (const p of payments) {
-    paidById.set(p.doc_id, (paidById.get(p.doc_id) ?? 0) + Number(p.amount))
-  }
-  const docById = new Map<string, DocInfo>()
-  for (const doc of docs) {
-    const total = totalById.get(doc.id) ?? 0
-    docById.set(doc.id, {
-      number: doc.number,
-      due: doc.due_date,
-      total,
-      balance: Math.max(0, total - (paidById.get(doc.id) ?? 0)),
-    })
-  }
-  return { docById, itemByDelivery }
-}
-
-function sideFor(
-  deliveryId: string,
-  itemByDelivery: Map<string, ItemInfo>,
-  docById: Map<string, DocInfo>
-): Side {
-  const item = itemByDelivery.get(deliveryId)
-  if (!item) return { kind: 'none' }
-  const doc = docById.get(item.docId)
-  if (!doc) return { kind: 'none' }
-  if (doc.balance <= 0.005 || doc.total <= 0) return { kind: 'paid' }
-  // this delivery's share of the document's remaining balance
-  const amount = Math.round(doc.balance * (item.amount / doc.total) * 100) / 100
-  return { kind: 'open', docId: item.docId, number: doc.number, due: doc.due, amount }
-}
-
-/** Lower = more urgent. Overdue sorts before upcoming, then unbilled, then settled. */
-function urgency(side: Side): number {
-  if (side.kind === 'open') {
-    if (!side.due) return 5000
-    return (new Date(`${side.due}T00:00:00Z`).getTime() - todayStart()) / DAY // negative = overdue
-  }
-  if (side.kind === 'none') return 9998
-  return 9999
-}
 
 function SideCell({
   side,
@@ -102,7 +35,7 @@ function SideCell({
 
   let dueChip = null
   if (side.due) {
-    const daysUntil = Math.round((new Date(`${side.due}T00:00:00Z`).getTime() - todayStart()) / DAY)
+    const daysUntil = daysUntilDue(side.due)
     if (daysUntil < 0) {
       dueChip = (
         <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
@@ -153,21 +86,21 @@ export async function DueTracker({ seasonId }: { seasonId?: string }) {
     { data: billPayments },
   ] = await Promise.all([
     deliveriesQuery,
-    supabase.from('sub_invoices').select('id, invoice_number, due_date'),
+    supabase.from('sub_invoices').select('id, invoice_number, due_date, status'),
     supabase.from('sub_invoice_items').select('sub_invoice_id, delivery_id, amount'),
     supabase.from('payments').select('sub_invoice_id, amount').not('sub_invoice_id', 'is', null),
-    supabase.from('supplier_bills').select('id, bill_number, due_date'),
+    supabase.from('supplier_bills').select('id, bill_number, due_date, status'),
     supabase.from('supplier_bill_items').select('supplier_bill_id, delivery_id, amount'),
     supabase.from('payments').select('supplier_bill_id, amount').not('supplier_bill_id', 'is', null),
   ])
 
   const inv = buildDocMaps(
-    (invoices ?? []).map((d) => ({ id: d.id, number: d.invoice_number, due_date: d.due_date })),
+    (invoices ?? []).map((d) => ({ id: d.id, number: d.invoice_number, due_date: d.due_date, status: d.status })),
     (invoiceItems ?? []).map((i) => ({ doc_id: i.sub_invoice_id, delivery_id: i.delivery_id, amount: i.amount })),
     (invoicePayments ?? []).map((p) => ({ doc_id: p.sub_invoice_id as string, amount: p.amount }))
   )
   const bill = buildDocMaps(
-    (bills ?? []).map((d) => ({ id: d.id, number: d.bill_number, due_date: d.due_date })),
+    (bills ?? []).map((d) => ({ id: d.id, number: d.bill_number, due_date: d.due_date, status: d.status })),
     (billItems ?? []).map((i) => ({ doc_id: i.supplier_bill_id, delivery_id: i.delivery_id, amount: i.amount })),
     (billPayments ?? []).map((p) => ({ doc_id: p.supplier_bill_id as string, amount: p.amount }))
   )
