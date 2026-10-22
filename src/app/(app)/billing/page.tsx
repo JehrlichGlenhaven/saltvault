@@ -181,8 +181,8 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
               <th className={thCls}>Site</th>
               <th className={thCls}>Product</th>
               <th className={thCls}>Qty</th>
-              <th className={thCls}>Sub invoice</th>
               <th className={thCls}>Supplier bill</th>
+              <th className={thCls}>Sub invoice</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -202,20 +202,20 @@ async function Content({ searchParams }: { searchParams: Promise<Filters> }) {
                   <td className={tdCls}>{qtyDisplay(d)}</td>
                   <td className={tdCls}>
                     <DocCell
-                      side={subSide}
-                      hrefBase="/invoices"
-                      noneLabel="Not invoiced"
-                      newHref="/invoices/new"
-                      newLabel="+ New invoice"
-                    />
-                  </td>
-                  <td className={tdCls}>
-                    <DocCell
                       side={supplierSide}
                       hrefBase="/bills"
                       noneLabel="No bill yet"
                       newHref="/bills/new"
                       newLabel="+ New bill"
+                    />
+                  </td>
+                  <td className={tdCls}>
+                    <DocCell
+                      side={subSide}
+                      hrefBase="/invoices"
+                      noneLabel="Not invoiced"
+                      newHref="/invoices/new"
+                      newLabel="+ New invoice"
                     />
                   </td>
                 </tr>
